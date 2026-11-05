@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>李曄的內容城市｜IP 操盤手 × 內容策略師</title>
+  <meta name="description" content="李曄 — IP 操盤手 × 內容策略師。14 年剪輯實戰、1,000+ 部影片，用一座 2D 內容城市看見職能、理念與案例之間的關係。" />
+  <meta property="og:title" content="李曄的內容城市" />
+  <meta property="og:description" content="一棟作品，一座相連的城市。IP 操盤手 × 內容策略師。" />
+  <meta property="og:image" content="assets/avatar.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <meta name="theme-color" content="#a9d6df" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 載入畫面 -->
+  <div id="loader">
+    <div class="loader-logo">LEE YEH</div>
+    <div class="loader-text">正在建造內容城市…</div>
+  </div>
+
+  <!-- 頂部列 -->
+  <header class="topbar">
+    <div class="brand">
+      <b id="brand-name">LEE YEH</b>
+      <span id="brand-sub">_內容城市</span>
+    </div>
+    <nav class="views" role="tablist" aria-label="切換檢視">
+      <button data-view="map" class="active" role="tab" aria-selected="true">🗺️ 地圖</button>
+      <button data-view="list" role="tab" aria-selected="false">☰ 清單</button>
+    </nav>
+    <button class="help-btn" id="help-btn" aria-label="重新觀看導覽">?</button>
+  </header>
+
+  <main>
+    <div id="mapwrap">
+      <svg id="map" aria-label="內容城市地圖"></svg>
+    </div>
+    <section id="list" hidden></section>
+  </main>
+
+  <!-- 左上：索引卡 -->
+  <aside id="index-card">
+    <button class="ic-toggle" id="ic-toggle" aria-label="收合索引">–</button>
+    <div class="ic-kicker">THE CONTENT INDEX</div>
+    <div class="ic-head">
+      <img id="ic-avatar" alt="" />
+      <div>
+        <h1 id="ic-title"></h1>
+        <p id="ic-tagline"></p>
+      </div>
+    </div>
+    <div class="ic-body">
+      <div class="ic-stats" id="ic-stats"></div>
+      <div class="ic-filter-title">篩選地區 <small>可複選</small></div>
+      <div class="ic-filters" id="ic-filters"></div>
+    </div>
+  </aside>
+
+  <!-- 下方工具列 -->
+  <div id="toolbar" role="toolbar" aria-label="地圖工具">
+    <button data-toggle="labels" aria-pressed="true">🏷️<span>名牌</span></button>
+    <button data-toggle="lines" aria-pressed="false">🔗<span>協作線</span></button>
+    <button data-toggle="movers" aria-pressed="true">📦<span>搬運</span></button>
+    <button data-toggle="animals" aria-pressed="true">🐾<span>動物</span></button>
+    <button data-toggle="paused" aria-pressed="false">⏸️<span>暫停</span></button>
+    <button data-action="fit">🦅<span>鳥瞰</span></button>
+    <button data-toggle="log" aria-pressed="true">📜<span>日誌</span></button>
+  </div>
+
+  <!-- 右下：城市日誌 -->
+  <div id="log">
+    <div class="log-head">
+      <span>城市日誌</span>
+      <span class="live">● LIVE</span>
+    </div>
+    <div class="log-status" id="log-status"></div>
+    <ul id="log-list"></ul>
+  </div>
+
+  <!-- 詳細面板 -->
+  <aside id="panel" aria-hidden="true" aria-live="polite">
+    <div class="p-grab" aria-hidden="true"></div>
+    <div id="panel-inner"></div>
+  </aside>
+
+  <!-- 開場導覽 -->
+  <div id="intro" hidden>
+    <div class="intro-card">
+      <div class="intro-kicker" id="intro-kicker"></div>
+      <h2 id="intro-title"></h2>
+      <p id="intro-text"></p>
+      <div class="intro-dots" id="intro-dots"></div>
+      <div class="intro-actions">
+        <button id="intro-skip" class="ghost">略過</button>
+        <button id="intro-next">下一步 →</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
