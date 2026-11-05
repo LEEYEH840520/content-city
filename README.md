@@ -51,10 +51,19 @@ assets/      圖片（avatar.jpg 是大頭照）
 
 **補上連結**：`links` 的 `url` 留空就不會顯示按鈕，填上網址就會出現。
 
-## 上線（網址固定）
+## 已上線
 
-1. **GitHub Pages**：建立 repo，上傳整個資料夾，到 Settings → Pages 開啟。網址會是 `https://<帳號>.github.io/<repo>/`，之後更新檔案網址都不變。
-2. **Netlify**：把資料夾拖進 app.netlify.com/drop，可以在設定裡改成固定的子網域。
-3. 有自己的網域的話，兩者都可以綁定自訂網域。
+網址：https://leeyeh840520.github.io/content-city/
+（GitHub repo：https://github.com/LEEYEH840520/content-city ）
 
-> 開場導覽只在第一次造訪時出現，按右上角「?」可以再看一次。
+**之後要更新網站**：改好檔案後，在這個資料夾執行
+
+```
+git add -A
+git commit -m "更新內容"
+git push
+```
+
+約 1 分鐘後網站就會更新，網址不變。也可以直接請 Claude 幫你推上去。
+
+不會上傳的檔案寫在 `.gitignore`（履歷 PDF、原始大圖）。
