@@ -87,11 +87,12 @@ main { position: fixed; inset: 0; }
 
 .contour { stroke: rgba(95, 130, 70, .28); stroke-width: 1.4; }
 .zone { transition: opacity .3s; }
-.road-edge { stroke: #e9e2d4; stroke-width: 26; fill: none; stroke-linecap: round; }
-.road-edge.main { stroke-width: 34; }
-.road { stroke: var(--road); stroke-width: 17; fill: none; stroke-linecap: round; }
-.road.main { stroke-width: 24; }
-.road-line { stroke: var(--road-line); stroke-width: 2; stroke-dasharray: 10 10; fill: none; opacity: .9; }
+.road-out { stroke: #5b4636; stroke-width: 20; fill: none; stroke-linecap: round; }
+.road-out.main { stroke-width: 26; }
+.road { stroke: #c4bfc6; stroke-width: 17; fill: none; stroke-linecap: round; }
+.road.main { stroke-width: 23; stroke: #bcb6bf; }
+.road-dash { stroke: #fff; stroke-width: 1.6; stroke-dasharray: 6 7; fill: none; stroke-linecap: round; opacity: .95; }
+.car, .walker { pointer-events: none; }
 .plot { transition: opacity .3s; }
 .hall-text { font-size: 9.5px; font-weight: 900; letter-spacing: .1em; }
 .civic-title { font-size: 19px; font-weight: 900; fill: #5b4636; letter-spacing: .1em; }
@@ -482,3 +483,39 @@ body.paused .beam { animation-play-state: paused; }
 @keyframes hint-in { from { opacity: 0; transform: translate(-50%, -40%); } }
 @keyframes hint-swipe { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }
 body[data-view="list"] .drag-hint { display: none; }
+
+/* ---------- 城市地標 ---------- */
+.landmark { pointer-events: none; }
+.ferris-wheel { transform-box: fill-box; transform-origin: center; animation: ferris-spin 24s linear infinite; }
+@keyframes ferris-spin { to { transform: rotate(360deg); } }
+.plane { animation: plane-taxi 9s ease-in-out infinite alternate; }
+@keyframes plane-taxi { from { transform: translateX(-34px); } to { transform: translateX(26px); } }
+body.paused .ferris-wheel, body.paused .plane { animation-play-state: paused; }
+
+/* ---------- 工具列：手機版是抽屜 ---------- */
+#toolbar .tb-toggle { display: none; }
+#tb-tip {
+  position: fixed; z-index: 40; transform: translate(-50%, -100%) translateY(6px);
+  background: var(--ink); color: #fff; text-align: center; white-space: nowrap;
+  padding: 7px 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; line-height: 1.4;
+  box-shadow: var(--shadow); pointer-events: none; opacity: 0; transition: opacity .2s, transform .2s;
+}
+#tb-tip small { display: block; font-weight: 400; font-size: 11.5px; opacity: .8; }
+#tb-tip::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--ink); }
+#tb-tip.show { opacity: 1; transform: translate(-50%, -100%); }
+@media (max-width: 720px) {
+  #toolbar .tb-toggle { display: flex; font-weight: 700; }
+  #toolbar .tb-toggle span { display: inline; font-size: 13.5px; }
+  #toolbar.open .tb-toggle span { display: none; }
+  #toolbar:not(.open) > button:not(.tb-toggle) { display: none; }
+  #toolbar.open > button:not(.tb-toggle) { animation: tb-pop .22s ease both; }
+  #toolbar.open > button:nth-child(3) { animation-delay: .03s; } #toolbar.open > button:nth-child(4) { animation-delay: .06s; }
+  #toolbar.open > button:nth-child(5) { animation-delay: .09s; } #toolbar.open > button:nth-child(6) { animation-delay: .12s; }
+  #toolbar.open > button:nth-child(7) { animation-delay: .15s; } #toolbar.open > button:nth-child(8) { animation-delay: .18s; }
+  #toolbar.open .tb-toggle { order: 99; background: #f1ebe5; }
+}
+@keyframes tb-pop { from { opacity: 0; transform: scale(.6); } }
+@media (max-width: 720px) {
+  #toolbar.open { gap: 0; padding: 5px; }
+  #toolbar.open > button { padding: 9px 8px; }
+}

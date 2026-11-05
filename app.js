@@ -153,7 +153,7 @@
     svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, fill: 'var(--sea)' }, svg);
     svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, fill: 'url(#sea)', class: 'waves' }, svg);
 
-    ['island', 'outer', 'clouds', 'region', 'pieces', 'deco', 'critters', 'lines', 'movers', 'tiles', 'plates', 'sky', 'districts'].forEach((n) => {
+    ['island', 'outer', 'clouds', 'region', 'pieces', 'roads', 'deco', 'traffic', 'landmarks', 'critters', 'lines', 'movers', 'tiles', 'plates', 'sky', 'districts'].forEach((n) => {
       layers[n] = svgEl('g', { class: `layer-${n}` }, svg);
     });
 
@@ -171,7 +171,7 @@
       const cols = mapItems.map((i) => grid[i.id][0]), rows = mapItems.map((i) => grid[i.id][1]);
       const used = new Set(mapItems.map((i) => grid[i.id].join(',')));
       const cands = [];
-      for (let r = Math.min(...rows); r <= Math.max(...rows); r++) for (let c = Math.min(...cols); c <= Math.max(...cols); c++) {
+      for (let r = Math.min(...rows) - 1; r <= Math.max(...rows) + 1; r++) for (let c = Math.min(...cols) - 1; c <= Math.max(...cols) + 1; c++) {
         if (used.has(`${c},${r}`)) continue;
         const p = { x: c * T + R(-14, 14), y: r * T + R(-12, 12) };
         const clear = Math.min(...mapItems.map((i) => Math.hypot(p.x - pos[i.id].x, p.y - pos[i.id].y) - (i.group ? 50 : 0)));
@@ -179,12 +179,26 @@
       }
       cands.sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
       const taken = [];
-      const take = () => { const i = cands.findIndex((p) => !near(p, taken, T * 0.95)); if (i < 0) return null; const p = cands.splice(i, 1)[0]; taken.push(p); return p; };
-      ['lake', 'park', 'plaza', 'park', 'park', 'plaza'].forEach((k, i) => {
-        const p = take();
-        if (p) extra.push({ id: `__${k}${i}`, kind: k, x: p.x, y: p.y, r: T * (k === 'lake' ? 0.5 : 0.42) });
+      const take = (far = false) => {
+        const order = far ? [...cands].reverse() : cands;
+        const p = order.find((q) => !taken.some((t) => Math.hypot(q.x - t.x, q.y - t.y) < T * (t.big || far ? 1.25 : 0.95)));
+        if (!p) return null;
+        cands.splice(cands.indexOf(p), 1); taken.push(p); if (far) p.big = true;
+        return p;
+      };
+      // 湖、公園、廣場 + 城市地標（裝飾用，不能點）
+      const SIZE = { lake: 0.5, airport: 0.64, stadium: 0.5, ferris: 0.46, mall: 0.46, museum: 0.46, market: 0.46, park: 0.42, plaza: 0.42 };
+      ['lake', 'park', 'market', 'plaza', 'museum', 'park', 'mall', 'ferris', 'plaza', 'stadium', 'park'].forEach((k, i) => {
+        const p = take(k === 'airport');
+        if (p) extra.push({ id: `__${k}${i}`, kind: k, x: p.x, y: p.y, r: T * SIZE[k] });
       });
     }
+
+    // 地標也算進畫面範圍（一打開、按鳥瞰時都看得到）
+    extra.forEach((e) => {
+      bounds.x0 = Math.min(bounds.x0, e.x - e.r - 20); bounds.x1 = Math.max(bounds.x1, e.x + e.r + 20);
+      bounds.y0 = Math.min(bounds.y0, e.y - e.r - 20); bounds.y1 = Math.max(bounds.y1, e.y + e.r + 30);
+    });
 
     // ---- 我的城市：亮起來的那一區，外形是一個圓潤完整的城市輪廓 ----
     const sites = [
@@ -213,6 +227,30 @@
     svgEl('path', { d: islandD, fill: '#2d4a52', opacity: 0.14, transform: 'translate(10,22)' }, layers.island);
     svgEl('path', { d: islandD, fill: '#c9a273', transform: 'translate(0,12)' }, layers.island);
     svgEl('path', { d: islandD, fill: '#f1e3c2', stroke: '#e6d2a8', 'stroke-width': 3 }, layers.island);
+    // ---- 海上機場：從島的右下方海岸伸出去的填海平台（放大 2 倍）----
+    {
+      const k = Math.round((0.55 / (Math.PI * 2)) * N) % N; // 右下方
+      const coast = islandPts[k];
+      const ux = (coast.x - cx0) / Math.hypot(coast.x - cx0, coast.y - cy0), uy = (coast.y - cy0) / Math.hypot(coast.x - cx0, coast.y - cy0);
+      const PW = 300, PH = 128; // 平台大小
+      const ax = coast.x + ux * 235, ay = coast.y + uy * 150; // 平台中心在海上
+      // 橋（從島上接到平台）
+      const bx0 = coast.x - ux * 30, by0 = coast.y - uy * 30, bx1 = ax - ux * 90, by1 = ay - uy * 50;
+      const bridge = svgEl('g', { class: 'airport-bridge' }, layers.island);
+      for (let t = 0.2; t < 0.95; t += 0.18) svgEl('rect', { x: bx0 + (bx1 - bx0) * t - 3, y: by0 + (by1 - by0) * t + 4, width: 6, height: 16, rx: 2, fill: '#b9b2a6', stroke: OUT, 'stroke-width': 1.2 }, bridge);
+      svgEl('path', { d: `M${bx0} ${by0} L${bx1} ${by1}`, stroke: OUT, 'stroke-width': 24, 'stroke-linecap': 'round' }, bridge);
+      svgEl('path', { d: `M${bx0} ${by0} L${bx1} ${by1}`, stroke: '#c4bfc6', 'stroke-width': 20, 'stroke-linecap': 'round' }, bridge);
+      svgEl('path', { d: `M${bx0} ${by0} L${bx1} ${by1}`, stroke: '#fff', 'stroke-width': 1.6, 'stroke-dasharray': '6 7' }, bridge);
+      // 平台：陰影 → 側邊 → 表面
+      const plat = svgEl('g', { class: 'airport-island' }, layers.island);
+      svgEl('rect', { x: ax - PW / 2 + 8, y: ay - PH / 2 + 18, width: PW, height: PH, rx: 36, fill: '#2d4a52', opacity: 0.14 }, plat);
+      svgEl('rect', { x: ax - PW / 2 - 14, y: ay - PH / 2 - 14, width: PW + 28, height: PH + 28, rx: 48, fill: 'rgba(255,255,255,.45)' }, plat);
+      svgEl('rect', { x: ax - PW / 2, y: ay - PH / 2 + 10, width: PW, height: PH, rx: 34, fill: '#b9b2a6' }, plat);
+      svgEl('rect', { x: ax - PW / 2, y: ay - PH / 2, width: PW, height: PH, rx: 34, fill: '#e9e5dc', stroke: '#a8a093', 'stroke-width': 3 }, plat);
+      drawLandmark({ kind: 'airport', x: ax + 6, y: ay - 6, scale: 2 });
+      bounds.x1 = Math.max(bounds.x1, ax + PW / 2 + 20); bounds.y1 = Math.max(bounds.y1, ay + PH / 2 + 20);
+    }
+
     const islandClip = svgEl('clipPath', { id: 'clip-island' }, defs);
     svgEl('path', { d: islandD, transform: 'translate(0,0) scale(1)' }, islandClip);
 
@@ -255,6 +293,7 @@
         if (i % 3 === 0) flatMountain(scenery, s.x, s.y, R(16, 24));
         else if (i % 3 === 1) for (let k = 0; k < 3; k++) flatTree(s.x + R(-26, 26), s.y + R(-18, 18), R(6, 8), rand, scenery, true);
       });
+      spots.wild = [...seeds].sort((a, b) => Math.hypot(a.x - cx0, a.y - cy0) - Math.hypot(b.x - cx0, b.y - cy0)).slice(0, 6).map((q) => ({ x: q.x, y: q.y, s: T * 0.7, r: T * 0.5 }));
       const far = [...seeds].sort((a, b) => Math.hypot(b.x - cx0, b.y - cy0) - Math.hypot(a.x - cx0, a.y - cy0));
       // 雲：飄在還沒開放的地方
       for (let k = 0; k < 7; k++) {
@@ -283,7 +322,7 @@
     [...new Set(sites.map((s) => s.group))].forEach((gid) => {
       const members = sites.filter((s) => s.group === gid);
       const kind = members[0].kind;
-      const color = kind === 'lake' ? '#a9d8e3' : kind === 'park' ? '#bfe0a2' : kind === 'plaza' ? '#f4e7cf' : gid === 'hub' ? '#fbe7a6' : pastel(catById[gid].color);
+      const color = kind ? (EXTRA_COLOR[kind] || '#f4e7cf') : gid === 'hub' ? '#fbe7a6' : pastel(catById[gid].color);
       const cp = svgEl('clipPath', { id: `clip-piece-${gid}` }, defs);
       members.forEach((s) => svgEl('path', { d: polyPath(s.poly) }, cp));
       const g = svgEl('g', { class: 'piece', ...(catById[gid] ? { 'data-cat': gid } : {}), 'clip-path': `url(#clip-piece-${gid})` }, piecesG);
@@ -302,6 +341,56 @@
     svgEl('path', { d: regionD, fill: 'none', stroke: WOOD_DARK, 'stroke-width': 5, 'stroke-linejoin': 'round' }, layers.pieces);
     svgEl('path', { d: regionD, fill: 'none', class: 'region-edge' }, layers.pieces);
 
+    // ---- 馬路：把建築串起來（最小生成樹 + 幾條捷徑 + 市政府主幹道），不穿過湖 ----
+    {
+      const ids = mapItems.map((i) => i.id);
+      const exById = Object.fromEntries(extra.map((e) => [e.id, e]));
+      const pt = (id) => pos[id] || exById[id];
+      const dist = (a, b) => Math.hypot(pt(a).x - pt(b).x, pt(a).y - pt(b).y);
+      const lake = extra.find((e) => e.kind === 'lake');
+      const edges = new Map();
+      const add = (a, b, main = false) => {
+        const k = [a, b].sort().join('|');
+        if (a === b) return;
+        if (!edges.has(k)) edges.set(k, { a, b, main }); else if (main) edges.get(k).main = true;
+      };
+      const inT = new Set([ids[0]]);
+      while (inT.size < ids.length) {
+        let best = null;
+        inT.forEach((a) => ids.forEach((b) => { if (!inT.has(b) && (!best || dist(a, b) < best.d)) best = { a, b, d: dist(a, b) }; }));
+        add(best.a, best.b); inT.add(best.b);
+      }
+      ids.forEach((a) => {
+        const nb = ids.filter((b) => b !== a).sort((p, q) => dist(a, p) - dist(a, q));
+        if (nb[1] && dist(a, nb[1]) < T * 1.7 && rand() < 0.6) add(a, nb[1]);
+      });
+      const hub = mapItems.find((i) => i.cat === 'hub');
+      if (hub) cats.forEach((c) => {
+        const m = mapItems.filter((i) => i.cat === c.id && i.id !== hub.id).sort((p, q) => dist(hub.id, p.id) - dist(hub.id, q.id))[0];
+        if (m) add(hub.id, m.id, true);
+      });
+      const roadG = svgEl('g', { 'clip-path': 'url(#clip-region)' }, layers.roads);
+      const layersR = ['road-out', 'road', 'road-dash'].map((cls) => svgEl('g', { class: `${cls}-g` }, roadG));
+      edges.forEach((e) => {
+        const a = pt(e.a), b = pt(e.b);
+        const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const bend = R(-0.18, 0.18) * len;
+        const cx = (a.x + b.x) / 2 - ((b.y - a.y) / len) * bend, cy = (a.y + b.y) / 2 + ((b.x - a.x) / len) * bend;
+        // 不要穿過湖
+        if (lake) for (let t = 0.1; t < 0.95; t += 0.05) {
+          const x = (1 - t) ** 2 * a.x + 2 * (1 - t) * t * cx + t * t * b.x, y = (1 - t) ** 2 * a.y + 2 * (1 - t) * t * cy + t * t * b.y;
+          if (Math.hypot(x - lake.x, y - lake.y) < lake.r + 14) return;
+        }
+        const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+        svgEl('path', { d, class: `road-out${e.main ? ' main' : ''}` }, layersR[0]);
+        const el = svgEl('path', { d, class: `road${e.main ? ' main' : ''}` }, layersR[1]);
+        svgEl('path', { d, class: 'road-dash' }, layersR[2]);
+        roads.push({ el, len: el.getTotalLength(), main: e.main });
+      });
+    }
+    const roadPts = [];
+    roads.forEach((rd) => { for (let t = 0; t <= rd.len; t += 10) { const p = rd.el.getPointAtLength(t); roadPts.push({ x: p.x, y: p.y }); } });
+
     // 空地上的小東西
     extra.forEach((e) => {
       if (e.kind === 'lake') {
@@ -310,6 +399,8 @@
       } else if (e.kind === 'park') {
         for (let k = 0; k < 3; k++) { const a = rand() * 6.28, d = R(18, e.r * 0.6); flatTree(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, R(7, 10), rand); }
         spots.park.push({ x: e.x, y: e.y, s: e.r * 1.1, r: e.r });
+      } else if (LANDMARK[e.kind]) {
+        drawLandmark(e);
       } else {
         svgEl('circle', { cx: e.x, cy: e.y, r: 16, fill: '#fff', stroke: OUT, 'stroke-width': 1.5 }, layers.deco);
         svgEl('circle', { cx: e.x, cy: e.y, r: 10, fill: '#a9d8e3', stroke: OUT, 'stroke-width': 1.2 }, layers.deco);
@@ -327,7 +418,7 @@
       for (let k = 0, tries = 0; k < n && tries < 24; tries++) {
         const a = rand() * Math.PI * 2, d = R(52, T * 0.62);
         const q = { x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.85 };
-        if (mapItems.some((o) => Math.hypot(q.x - pos[o.id].x, q.y - pos[o.id].y) < (o.group ? 110 : o.cat === 'hub' ? 80 : 52)) || near(q, decos, 22)) continue;
+        if (mapItems.some((o) => Math.hypot(q.x - pos[o.id].x, q.y - pos[o.id].y) < (o.group ? 110 : o.cat === 'hub' ? 80 : 52)) || near(q, decos, 22) || near(q, roadPts, 20)) continue;
         decos.push(q); k++;
         if (rand() < 0.6) flatTree(q.x, q.y, R(6, 9), rand);
         else flatHouse(q.x, q.y, pastel(catById[it.cat].color), rand);
@@ -395,7 +486,127 @@
       bg.setAttribute('width', bb.width + 18); bg.setAttribute('height', bb.height + 8);
     });
 
+    // ---- 車子、行人 ----
+    if (roads.length) {
+      const carColors = ['#ef8a7a', '#6fb3d2', '#f4c95d', '#8cc084', '#a99be0', '#f2a65a', '#ffffff'];
+      const nCars = Math.min(12, roads.length);
+      for (let i = 0; i < nCars; i++) {
+        const rd = roads[(i * 3) % roads.length];
+        const col = carColors[i % carColors.length];
+        const g = svgEl('g', { class: 'car' }, layers.traffic);
+        const bus = i % 5 === 4;
+        const L = bus ? 26 : 19, W = bus ? 11.5 : 10.5;
+        svgEl('rect', { x: -L / 2 + 1.5, y: -W / 2 + 2.5, width: L, height: W, rx: 3.5, fill: 'rgba(0,0,0,.18)' }, g);
+        svgEl('rect', { x: -L / 2, y: -W / 2, width: L, height: W, rx: 3.5, fill: col, stroke: OUT, 'stroke-width': 1.4 }, g);
+        if (bus) [-8, -2, 4].forEach((x) => svgEl('rect', { x, y: -W / 2 + 2, width: 4, height: W - 4, rx: 1, fill: '#d6eef4', stroke: OUT, 'stroke-width': 0.8 }, g));
+        else {
+          svgEl('rect', { x: -3, y: -W / 2 + 1.6, width: 9, height: W - 3.2, rx: 2.4, fill: shade(col, 0.45), stroke: OUT, 'stroke-width': 1 }, g);
+          svgEl('rect', { x: 3.2, y: -W / 2 + 2.2, width: 2.6, height: W - 4.4, rx: 1, fill: '#d6eef4' }, g);
+        }
+        svgEl('circle', { cx: L / 2 - 1.2, cy: -W / 2 + 2, r: 1.2, fill: '#fff6c4' }, g);
+        svgEl('circle', { cx: L / 2 - 1.2, cy: W / 2 - 2, r: 1.2, fill: '#fff6c4' }, g);
+        cars.push({ g, rd, dir: i % 2 ? 1 : -1, d: rand() * rd.len, v: bus ? 22 : 28 + rand() * 22 });
+      }
+      const shirts = ['#ef8a7a', '#6fb3d2', '#f4c95d', '#8cc084', '#a99be0', '#f2a65a', '#e6a5c0', '#7fc3b0'];
+      const skins = ['#f6d3b3', '#eec09a', '#d9a47c', '#f8dcc4'];
+      const hairs = ['#4a3a2e', '#2d2a30', '#8a5a3a', '#c9a06a', '#5b4636'];
+      const nPeople = Math.min(16, roads.length * 2);
+      for (let i = 0; i < nPeople; i++) {
+        const rd = roads[(i * 7 + 1) % roads.length];
+        const g = svgEl('g', { class: 'walker' }, layers.traffic);
+        const sp = svgEl('g', {}, g);
+        const shirt = shirts[i % shirts.length], skin = skins[i % skins.length], hair = hairs[(i * 3) % hairs.length];
+        svgEl('ellipse', { cx: 0, cy: 0, rx: 4.5, ry: 1.3, fill: 'rgba(0,0,0,.16)' }, sp);
+        const legs = svgEl('path', { d: 'M-1.4 -5 L-2 0 M1.4 -5 L2 0', stroke: OUT, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, sp);
+        svgEl('rect', { x: -3.6, y: -12, width: 7.2, height: 8, rx: 2.8, fill: shirt, stroke: OUT, 'stroke-width': 1.1 }, sp);
+        svgEl('circle', { cx: 0, cy: -15.5, r: 3.6, fill: skin, stroke: OUT, 'stroke-width': 1.1 }, sp);
+        svgEl('path', { d: i % 3 ? 'M-3.6 -15.8 a3.6 3.6 0 0 1 7.2 0 Z' : 'M-3.8 -15 a3.8 4 0 0 1 7.6 0 v3 h-1.6 v-2 h-4.4 v2 h-1.6 Z', fill: hair }, sp);
+        if (i % 4 === 1) svgEl('path', { d: 'M3 -14 l4 -1 v6', stroke: OUT, 'stroke-width': 1, fill: 'none' }, sp);
+        walkers.push({ g, sp, legs, rd, side: i % 2 ? 1 : -1, dir: rand() < 0.5 ? 1 : -1, d: R(0.15, 0.85) * rd.len, v: R(9, 15), ph: rand() * 10, pause: 0 });
+      }
+    }
+
     movers.forEach((m) => { m.len = m.path.getTotalLength(); });
+  }
+
+  /* ---------- 城市地標（裝飾用、不能點） ---------- */
+  const EXTRA_COLOR = { lake: '#a9d8e3', park: '#bfe0a2', plaza: '#f4e7cf', mall: '#e9e0f3', museum: '#ece6dc', airport: '#dde7ec', market: '#fde6cc', ferris: '#fbe2ea', stadium: '#d9ecd0' };
+  const LANDMARK = { mall: '商場', museum: '博物館', airport: '機場', market: '市場', ferris: '遊樂園', stadium: '體育場' };
+
+  function drawLandmark(e) {
+    const g = svgEl('g', { class: `landmark lm-${e.kind}`, transform: `translate(${e.x.toFixed(1)},${e.y.toFixed(1)}) scale(${e.scale || 1})` }, layers.landmarks);
+    const S = { stroke: OUT, 'stroke-width': 1.7, 'stroke-linejoin': 'round' };
+    const s1 = { stroke: OUT, 'stroke-width': 1.2 };
+    if (e.kind === 'mall') {
+      svgEl('ellipse', { cx: 2, cy: 30, rx: 50, ry: 7, class: 'tshadow' }, g);
+      svgEl('rect', { x: -46, y: -8, width: 92, height: 36, rx: 3, fill: '#fff8ec', ...S }, g);
+      svgEl('rect', { x: -40, y: 2, width: 80, height: 18, rx: 2, fill: '#cfe6f2', ...s1 }, g);
+      [-26, -12, 12, 26].forEach((x) => svgEl('path', { d: `M${x} 2 V20`, ...s1 }, g));
+      svgEl('rect', { x: -7, y: 8, width: 14, height: 20, rx: 1.5, fill: '#9fc6da', ...s1 }, g);
+      const aw = ['#ef8a7a', '#fff', '#f4c95d', '#fff', '#6fb3d2', '#fff', '#8cc084', '#fff'];
+      aw.forEach((c, i) => svgEl('rect', { x: -46 + i * 11.5, y: -16, width: 11.5, height: 9, fill: c }, g));
+      svgEl('rect', { x: -46, y: -16, width: 92, height: 9, fill: 'none', ...S }, g);
+      svgEl('rect', { x: -24, y: -36, width: 48, height: 18, rx: 4, fill: '#a99be0', ...S }, g);
+      svgEl('path', { d: 'M-5 -31 h10 l1.5 10 h-13 Z', fill: '#fff', ...s1 }, g);
+      svgEl('path', { d: 'M-2.5 -31 v-2 a2.5 2.5 0 0 1 5 0 v2', fill: 'none', ...s1 }, g);
+    } else if (e.kind === 'museum') {
+      svgEl('ellipse', { cx: 2, cy: 32, rx: 46, ry: 7, class: 'tshadow' }, g);
+      svgEl('rect', { x: -44, y: 26, width: 88, height: 6, rx: 1.5, fill: '#e3d9c8', ...S }, g);
+      svgEl('rect', { x: -40, y: 20, width: 80, height: 7, rx: 1.5, fill: '#eee6d8', ...S }, g);
+      svgEl('rect', { x: -36, y: -8, width: 72, height: 29, fill: '#f7f2ea', ...S }, g);
+      [-28, -17, -6, 6, 17, 28].forEach((x) => svgEl('path', { d: `M${x} -5 V19`, stroke: OUT, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, g));
+      svgEl('path', { d: 'M-42 -7 L0 -34 L42 -7 Z', fill: '#ddd4c8', ...S }, g);
+      svgEl('circle', { cx: 0, cy: -17, r: 5, fill: '#f4c95d', ...s1 }, g);
+      svgEl('path', { d: 'M24 -6 h9 v20 l-4.5 -4 l-4.5 4 Z', fill: '#a99be0', ...s1 }, g);
+    } else if (e.kind === 'airport') {
+      svgEl('rect', { x: -66, y: 8, width: 132, height: 20, rx: 4, fill: '#8d8a94', ...S }, g);
+      svgEl('path', { d: 'M-58 18 H58', stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '8 7' }, g);
+      [-62, 56].forEach((x) => [11, 15, 19, 23].forEach((y) => svgEl('rect', { x, y, width: 6, height: 1.6, fill: '#fff' }, g)));
+      svgEl('rect', { x: -52, y: -24, width: 46, height: 24, rx: 3, fill: '#fff8ec', ...S }, g);
+      svgEl('rect', { x: -48, y: -17, width: 38, height: 8, rx: 1.5, fill: '#cfe6f2', ...s1 }, g);
+      svgEl('path', { d: 'M-52 -24 Q-29 -36 -6 -24', fill: '#6fb3d2', ...S }, g);
+      svgEl('rect', { x: 14, y: -38, width: 9, height: 38, fill: '#fff8ec', ...S }, g);
+      svgEl('rect', { x: 9, y: -50, width: 19, height: 12, rx: 2, fill: '#cfe6f2', ...S }, g);
+      svgEl('path', { d: 'M9 -50 h19 l-3 -5 h-13 Z', fill: '#ef8a7a', ...S }, g);
+      const plane = svgEl('g', { class: 'plane' }, g);
+      svgEl('path', { d: 'M-16 18 Q-16 15 -10 15 H12 Q18 15 18 18 Q18 21 12 21 H-10 Q-16 21 -16 18 Z', fill: '#fff', ...s1 }, plane);
+      svgEl('path', { d: 'M-2 15 L-8 4 H-3 L6 15 Z M-2 21 L-8 32 H-3 L6 21 Z', fill: '#e6eef2', ...s1 }, plane);
+      svgEl('path', { d: 'M-14 15 L-17 9 H-13 L-9 15 Z', fill: '#ef8a7a', ...s1 }, plane);
+      svgEl('circle', { cx: 13, cy: 18, r: 1.6, fill: '#6fb3d2' }, plane);
+    } else if (e.kind === 'market') {
+      const aw = [['#ef8a7a', '#fff'], ['#8cc084', '#fff'], ['#f4c95d', '#fff']];
+      const fruit = [['#ef5d50', '#f4a340', '#ef5d50'], ['#8cc084', '#f4c95d', '#8cc084'], ['#a65fbd', '#ef5d50', '#f4a340']];
+      svgEl('ellipse', { cx: 2, cy: 28, rx: 50, ry: 7, class: 'tshadow' }, g);
+      [-32, 0, 32].forEach((x, i) => {
+        svgEl('rect', { x: x - 13, y: 4, width: 26, height: 20, rx: 2, fill: '#e8c9a0', ...S }, g);
+        fruit[i].forEach((c, k) => svgEl('circle', { cx: x - 7 + k * 7, cy: 4, r: 3.2, fill: c, ...s1, 'stroke-width': 0.9 }, g));
+        svgEl('path', { d: `M${x - 11} -14 V4 M${x + 11} -14 V4`, stroke: OUT, 'stroke-width': 1.4 }, g);
+        for (let k = 0; k < 4; k++) svgEl('rect', { x: x - 15 + k * 7.5, y: -18, width: 7.5, height: 9, fill: aw[i][k % 2] }, g);
+        svgEl('path', { d: `M${x - 15} -18 H${x + 15} V-9 q-3.75 4 -7.5 0 q-3.75 4 -7.5 0 q-3.75 4 -7.5 0 q-3.75 4 -7.5 0 Z`, fill: 'none', ...S }, g);
+      });
+    } else if (e.kind === 'ferris') {
+      svgEl('ellipse', { cx: 2, cy: 30, rx: 34, ry: 6, class: 'tshadow' }, g);
+      svgEl('path', { d: 'M0 -14 L-17 26 M0 -14 L17 26', stroke: OUT, 'stroke-width': 2.2, 'stroke-linecap': 'round' }, g);
+      svgEl('rect', { x: -24, y: 24, width: 48, height: 6, rx: 2, fill: '#f4c95d', ...S }, g);
+      const wheel = svgEl('g', { class: 'ferris-wheel' }, g);
+      svgEl('circle', { cx: 0, cy: -14, r: 28, fill: 'rgba(255,255,255,.35)', stroke: OUT, 'stroke-width': 1.8 }, wheel);
+      svgEl('circle', { cx: 0, cy: -14, r: 20, fill: 'none', stroke: '#c6a1d6', 'stroke-width': 1.2 }, wheel);
+      const cab = ['#ef8a7a', '#6fb3d2', '#f4c95d', '#8cc084', '#a99be0', '#f2a65a', '#e6a5c0', '#7fc3b0'];
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2, x = Math.cos(a) * 28, y = -14 + Math.sin(a) * 28;
+        svgEl('path', { d: `M0 -14 L${x.toFixed(1)} ${y.toFixed(1)}`, stroke: OUT, 'stroke-width': 1 }, wheel);
+        svgEl('circle', { cx: x.toFixed(1), cy: y.toFixed(1), r: 4.6, fill: cab[k], ...s1 }, wheel);
+      }
+      svgEl('circle', { cx: 0, cy: -14, r: 3.5, fill: '#fff', ...s1 }, g);
+    } else if (e.kind === 'stadium') {
+      svgEl('ellipse', { cx: 3, cy: 6, rx: 52, ry: 32, class: 'tshadow' }, g);
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 50, ry: 30, fill: '#efe6d6', ...S }, g);
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 50, ry: 30, fill: 'none', stroke: '#c9b8a0', 'stroke-width': 4, 'stroke-dasharray': '3 4' }, g);
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 40, ry: 21, fill: '#e88f7f', ...s1 }, g);
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 31, ry: 14, fill: '#8cc084', ...s1 }, g);
+      svgEl('path', { d: 'M0 -14 V14', stroke: '#fff', 'stroke-width': 1.4 }, g);
+      svgEl('circle', { cx: 0, cy: 0, r: 5, fill: 'none', stroke: '#fff', 'stroke-width': 1.4 }, g);
+    }
   }
 
   // 從中心往外每個角度，找最遠的那個點的邊緣 → 得到一個包住所有點的圓潤輪廓
@@ -726,6 +937,8 @@
   const SOUNDS = {
     cat: ['喵～', '喵嗚', '呼嚕呼嚕'], dog: ['汪！', '汪汪！', '要散步嗎？'], capy: ['咕嚕～', '（泡湯中）', '好舒服～'],
     pigeon: ['咕咕', '咕咕咕'], dove: ['咕咕—咕', '咕—咕咕'], parrot: ['你好！', '哈囉！', '按讚追蹤！'],
+    alpaca: ['咩～', '嗯嗯～', '（吐口水）'], pelican: ['嘎！', '（張大嘴）'], kiwi: ['奇異～', '啾啾！'],
+    kakapo: ['咚…咚…', '（胖胖走路）'], emu: ['咕嚕嚕', '咚咚咚'], kangaroo: ['蹦！', '蹦蹦～'], elephant: ['叭噗～', '噗嚕嚕'],
   };
 
   function sprite(kind, color, extra = {}) {
@@ -734,7 +947,8 @@
     const bob = svgEl('g', {}, sp);     // 走路上下晃
     const parts = { g, sp, bob };
     // 透明的點擊範圍，小動物比較好點
-    svgEl('circle', { cx: 0, cy: -7, r: 13, fill: 'transparent' }, g);
+    const hit = { elephant: [-16, 24], emu: [-16, 16], kangaroo: [-14, 16], alpaca: [-14, 15] }[kind] || [-7, 13];
+    svgEl('circle', { cx: 0, cy: hit[0], r: hit[1], fill: 'transparent' }, g);
     const dark = shade(color, -0.25);
     if (kind === 'cat') {
       svgEl('ellipse', { cx: 0, cy: 0, rx: 8, ry: 1.8, fill: 'rgba(0,0,0,.12)' }, bob);
@@ -786,6 +1000,78 @@
       svgEl('path', { d: 'M6.6 -7.6 l1.9 0.5 l-1.9 0.6 z', fill: '#e1a072' }, hd);
       svgEl('circle', { cx: 5.1, cy: -7.7, r: 0.5, fill: '#2d2a30' }, hd);
       parts.headG = hd; parts.wingG = wing;
+    } else if (kind === 'alpaca') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 9, ry: 1.8, fill: 'rgba(0,0,0,.12)' }, bob);
+      [-6, -3, 3, 6].forEach((lx) => svgEl('rect', { x: lx - 1, y: -6, width: 2, height: 6, rx: 1, fill: dark }, bob));
+      svgEl('ellipse', { cx: 0, cy: -9, rx: 9, ry: 5.5, fill: color }, bob);
+      [-5, 0, 5].forEach((cx) => svgEl('circle', { cx, cy: -13, r: 3, fill: shade(color, 0.25) }, bob));
+      svgEl('rect', { x: 5, y: -23, width: 5, height: 15, rx: 2.5, fill: color }, bob);
+      svgEl('ellipse', { cx: 10, cy: -23.5, rx: 4.6, ry: 3.4, fill: color }, bob);
+      svgEl('circle', { cx: 8.5, cy: -27, r: 2.6, fill: shade(color, 0.3) }, bob);
+      svgEl('path', { d: 'M6.6 -26 l-0.6 -4 l2 2.4 Z M10 -26.5 l0.6 -4 l1.4 3 Z', fill: dark }, bob);
+      svgEl('ellipse', { cx: 14, cy: -22.6, rx: 1.6, ry: 1.3, fill: shade(color, -0.15) }, bob);
+      svgEl('circle', { cx: 11.4, cy: -24.4, r: 0.75, fill: '#333' }, bob);
+    } else if (kind === 'pelican') {
+      if (!extra.float) {
+        svgEl('ellipse', { cx: 0, cy: 0, rx: 7, ry: 1.5, fill: 'rgba(0,0,0,.12)' }, bob);
+        svgEl('path', { d: 'M-1 -3 v3 M2 -3 v3', stroke: '#f2a65a', 'stroke-width': 1.3 }, bob);
+      }
+      svgEl('path', { d: 'M-7 -7 l-4 -2 l1 4 Z', fill: '#c9cdd4' }, bob);
+      svgEl('ellipse', { cx: 0, cy: -6.5, rx: 8, ry: 4.6, fill: '#f6f4ef' }, bob);
+      svgEl('ellipse', { cx: -1.5, cy: -7, rx: 5, ry: 2.6, fill: '#c9cdd4' }, bob);
+      svgEl('path', { d: 'M5 -9 q2 -6 1 -9', stroke: '#f6f4ef', 'stroke-width': 3.2, fill: 'none', 'stroke-linecap': 'round' }, bob);
+      svgEl('circle', { cx: 6, cy: -18, r: 3, fill: '#f6f4ef' }, bob);
+      svgEl('path', { d: 'M8 -19 L21 -16.5 L8 -16 Z', fill: '#f4b942' }, bob);
+      svgEl('path', { d: 'M8.5 -16 Q14 -11 20 -16', fill: '#f2d38a' }, bob);
+      svgEl('circle', { cx: 6.8, cy: -18.8, r: 0.7, fill: '#333' }, bob);
+      if (extra.float) svgEl('ellipse', { cx: 0, cy: -3, rx: 11, ry: 3, fill: '#a9d8e3', stroke: 'rgba(255,255,255,.85)', 'stroke-width': 1.2 }, bob);
+    } else if (kind === 'kiwi') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 6, ry: 1.4, fill: 'rgba(0,0,0,.12)' }, bob);
+      svgEl('path', { d: 'M-1.5 -2 v2 M1.5 -2 v2', stroke: '#c9a77a', 'stroke-width': 1.2 }, bob);
+      svgEl('ellipse', { cx: 0, cy: -5, rx: 6.5, ry: 4.8, fill: color }, bob);
+      [[-3, -6], [-1, -3.5], [1.5, -6.5], [-4, -3.8]].forEach(([dx, dy]) => svgEl('path', { d: `M${dx} ${dy} l1.4 -0.6`, stroke: shade(color, -0.25), 'stroke-width': 0.8 }, bob));
+      svgEl('path', { d: 'M5 -6 L14 -2.5', stroke: '#e8d4a6', 'stroke-width': 1.3, 'stroke-linecap': 'round' }, bob);
+      svgEl('circle', { cx: 4, cy: -6.5, r: 0.6, fill: '#222' }, bob);
+    } else if (kind === 'kakapo') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 7, ry: 1.6, fill: 'rgba(0,0,0,.12)' }, bob);
+      svgEl('path', { d: 'M-2 -2 v2 M2 -2 v2', stroke: '#a3a3a3', 'stroke-width': 1.4 }, bob);
+      svgEl('path', { d: 'M-6 -4 l-5 2 l4 1.5 Z', fill: shade(color, -0.2) }, bob);
+      svgEl('ellipse', { cx: 0, cy: -6.5, rx: 7.5, ry: 6, fill: color }, bob);
+      [[-3, -8], [-1, -5], [1.5, -9], [-4.5, -5.5], [2, -4]].forEach(([dx, dy]) => svgEl('circle', { cx: dx, cy: dy, r: 0.7, fill: shade(color, -0.3) }, bob));
+      svgEl('circle', { cx: 5.5, cy: -9.5, r: 3.6, fill: '#d9d98e' }, bob);
+      svgEl('path', { d: 'M8.6 -9.5 q1.8 0.6 0.8 2.6 q-1 -0.6 -1.4 -1.2 Z', fill: '#bdb8b0' }, bob);
+      svgEl('circle', { cx: 6.2, cy: -10.4, r: 0.7, fill: '#222' }, bob);
+    } else if (kind === 'emu') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 8, ry: 1.8, fill: 'rgba(0,0,0,.12)' }, bob);
+      svgEl('path', { d: 'M-2 -11 L-3 0 M2 -11 L3 0', stroke: '#8a8070', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, bob);
+      svgEl('ellipse', { cx: -1, cy: -15, rx: 9, ry: 6.5, fill: color }, bob);
+      [-6, -2, 2].forEach((dx) => svgEl('path', { d: `M${dx} -10 q1 2 2 0`, stroke: shade(color, -0.25), 'stroke-width': 1, fill: 'none' }, bob));
+      svgEl('path', { d: 'M5 -18 Q8 -26 8 -32', stroke: '#8fa3b3', 'stroke-width': 3, fill: 'none', 'stroke-linecap': 'round' }, bob);
+      svgEl('circle', { cx: 8.5, cy: -33, r: 2.8, fill: '#8fa3b3' }, bob);
+      svgEl('path', { d: 'M10.6 -33.6 l3 1 l-3 0.8 Z', fill: '#5b4636' }, bob);
+      svgEl('circle', { cx: 9.4, cy: -33.8, r: 0.6, fill: '#222' }, bob);
+    } else if (kind === 'kangaroo') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 9, ry: 1.8, fill: 'rgba(0,0,0,.12)' }, g);
+      svgEl('path', { d: 'M-5 -5 Q-12 -3 -17 0', stroke: color, 'stroke-width': 3, fill: 'none', 'stroke-linecap': 'round' }, bob);
+      svgEl('ellipse', { cx: -1, cy: -4, rx: 6, ry: 3.6, fill: dark }, bob);
+      svgEl('path', { d: 'M1 -1 h6', stroke: dark, 'stroke-width': 2, 'stroke-linecap': 'round' }, bob);
+      svgEl('ellipse', { cx: 0, cy: -12, rx: 5.5, ry: 8, fill: color, transform: 'rotate(18 0 -12)' }, bob);
+      svgEl('ellipse', { cx: 1.5, cy: -10, rx: 3, ry: 4.5, fill: shade(color, 0.35), transform: 'rotate(18 1.5 -10)' }, bob);
+      svgEl('path', { d: 'M3 -13 l4 2', stroke: dark, 'stroke-width': 1.5, 'stroke-linecap': 'round' }, bob);
+      svgEl('ellipse', { cx: 5, cy: -21, rx: 4, ry: 3, fill: color }, bob);
+      svgEl('path', { d: 'M3 -23 l-1 -5 l2.4 3.6 Z M5.4 -23.4 l0.6 -5 l1.2 4 Z', fill: dark }, bob);
+      svgEl('circle', { cx: 6.6, cy: -21.6, r: 0.7, fill: '#222' }, bob);
+      svgEl('circle', { cx: 8.8, cy: -20.6, r: 0.8, fill: '#333' }, bob);
+    } else if (kind === 'elephant') {
+      svgEl('ellipse', { cx: 0, cy: 0, rx: 17, ry: 3, fill: 'rgba(0,0,0,.12)' }, bob);
+      svgEl('path', { d: 'M-14 -16 q-4 4 -3 9', stroke: dark, 'stroke-width': 1.4, fill: 'none' }, bob);
+      [-10, -4, 4, 10].forEach((lx) => svgEl('rect', { x: lx - 2.6, y: -9, width: 5.2, height: 9, rx: 2, fill: lx < 0 ? dark : color }, bob));
+      svgEl('ellipse', { cx: 0, cy: -15, rx: 15, ry: 9.5, fill: color }, bob);
+      svgEl('circle', { cx: 13, cy: -19, r: 7.5, fill: color }, bob);
+      svgEl('path', { d: 'M18 -17 Q22 -10 20 -4 q-1 1.5 -2.6 0.2', stroke: color, 'stroke-width': 3.8, fill: 'none', 'stroke-linecap': 'round' }, bob);
+      svgEl('path', { d: 'M17 -14 l3 1.6', stroke: '#fffaf0', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, bob);
+      svgEl('ellipse', { cx: 9, cy: -18, rx: 5, ry: 7, fill: shade(color, 0.25) }, bob);
+      svgEl('circle', { cx: 15.6, cy: -21, r: 0.9, fill: '#222' }, bob);
     } else if (kind === 'parrot') {
       svgEl('path', { d: 'M-5 -1 L-17 1.5 L-16 -1.5 z', fill: extra.tail }, bob);
       svgEl('ellipse', { cx: 0, cy: -1, rx: 6.5, ry: 3.4, fill: color }, bob);
@@ -824,7 +1110,7 @@
     // 貓狗：在公園散步
     [['cat', '#f2a65a'], ['cat', '#4a4650'], ['cat', '#c9c3cc'], ['cat', '#f7f1e8', { patch: '#e0a060' }],
       ['dog', '#e0a060'], ['dog', '#8b6b4a'], ['dog', '#f3eee6']].forEach(([k, c, o], i) => {
-      addAnimal(k, c, pick(parks, i * 3 + 1), { speed: k === 'cat' ? 16 : 26, ...(o || {}) });
+      addAnimal(k, c, pick([...spots.park, ...spots.plaza], i), { speed: k === 'cat' ? 16 : 26, ...(o || {}) });
     });
 
     // 水豚：泡在噴水池，另一隻在公園躺著
@@ -847,6 +1133,20 @@
     const doveFlock = { spot: pick(parks, 7), timer: R(16, 30), birds: [] };
     for (let i = 0; i < 3; i++) doveFlock.birds.push(addAnimal('dove', '#d4bfab', doveFlock.spot, { speed: 12, scale: 1.1 }));
     flocks.push(doveFlock);
+
+    // 羊駝、奇異鳥、鴞鸚鵡：在城市的公園裡
+    [['alpaca', '#f1e2cc', 0], ['alpaca', '#d9b48c', 1], ['kiwi', '#8a6a4a', 2], ['kiwi', '#7a5c40', 0], ['kakapo', '#8fbf5a', 1]].forEach(([k, c, i]) => {
+      addAnimal(k, c, pick(parks, i), { speed: k === 'kiwi' ? 20 : k === 'kakapo' ? 7 : 12, scale: k === 'alpaca' ? 1.1 : 1 });
+    });
+    // 鵜鶘：浮在湖上（沒有湖就在廣場）
+    if (spots.lake) [0, 1].forEach(() => addAnimal('pelican', '#f6f4ef', spots.lake, { float: true, speed: 6, scale: 1.05 }));
+    else addAnimal('pelican', '#f6f4ef', pick(plazas, 1), { speed: 8 });
+    // 鵝鶓、袋鼠、大象：在城市外面的原野上
+    const wild = spots.wild.length ? spots.wild : parks;
+    [['emu', '#6b5a4a', 0, 1.15, 26], ['emu', '#75614f', 1, 1.15, 26], ['kangaroo', '#c98b55', 2, 1.15, 30], ['kangaroo', '#b97c49', 3, 1.05, 30],
+      ['elephant', '#a9adb8', 4, 1.45, 8], ['elephant', '#b3b7c1', 4, 0.9, 9]].forEach(([k, c, i, sc, sp]) => {
+      addAnimal(k, c, pick(wild, i), { speed: sp, scale: sc, hop: k === 'kangaroo' });
+    });
 
     // 鸚鵡：在城市上空飛
     [{ color: '#4cb050', head: '#e8453c', belly: '#c9e36b', tail: '#3b7dd8' },
@@ -878,11 +1178,12 @@
     flocks.forEach((f) => { f.timer -= dt; if (f.timer <= 0) flyFlock(f); });
     animals.forEach((a) => {
       a.ph += dt;
+      if (a.fleeT > 0) a.fleeT -= dt;
       let lift = 0, flap = 1, bobY = 0, headRot = 0;
       if (a.mode === 'sky') { // 鸚鵡：一直飛
         const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
         if (d < 10) newSkyTarget(a);
-        else { a.x += (dx / d) * a.speed * dt; a.y += (dy / d) * a.speed * dt; a.face = dx >= 0 ? 1 : -1; }
+        else { const v = a.speed * (a.fleeT > 0 ? 3 : 1); a.x += (dx / d) * v * dt; a.y += (dy / d) * v * dt; a.face = dx >= 0 ? 1 : -1; }
         lift = -40 + Math.sin(a.ph * 1.6) * 5;
         flap = Math.sin(a.ph * 16);
       } else if (a.mode === 'fly') { // 鴿子 / 斑鳩：飛到別處
@@ -910,10 +1211,10 @@
             const p = isBird ? { x: clamp(a.x + R(-14, 14), s.x - s.s / 2 + 8, s.x + s.s / 2 - 8), y: clamp(a.y + R(-10, 10), s.y - s.s / 2 + 8, s.y + s.s / 2 - 8) } : inSpot(s);
             a.tx = p.x; a.ty = p.y;
           } else {
-            const step = Math.min(d, a.speed * dt);
+            const step = Math.min(d, a.speed * (a.fleeT > 0 ? 4.5 : 1) * dt);
             a.x += (dx / d) * step; a.y += (dy / d) * step;
             if (Math.abs(dx) > 0.5) a.face = dx > 0 ? 1 : -1;
-            bobY = -Math.abs(Math.sin(a.ph * (a.headG ? 18 : 11))) * (a.headG ? 1.5 : 1.2);
+            bobY = a.hop ? -Math.abs(Math.sin(a.ph * 6)) * 9 : -Math.abs(Math.sin(a.ph * (a.headG ? 18 : 11))) * (a.headG ? 1.5 : 1.2);
           }
         }
       } else { // 水豚：發呆、偶爾轉頭
@@ -925,6 +1226,47 @@
       a.bob.setAttribute('transform', `translate(0,${bobY.toFixed(2)})`);
       if (a.headG) a.headG.setAttribute('transform', headRot ? `rotate(${headRot.toFixed(1)} 3 -5)` : '');
       if (a.wingG) a.wingG.setAttribute('transform', `translate(0,-4) scale(1,${flap.toFixed(2)}) translate(0,4)`);
+    });
+  }
+
+  // 在某個位置冒出一個小泡泡
+  function sayAt(x, y, text, cls = '') {
+    const g = svgEl('g', { class: `bubble ${cls}`, transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` }, layers.sky);
+    const bg = svgEl('rect', { rx: 8, fill: '#fff', stroke: 'var(--ink)', 'stroke-width': 1.5 }, g);
+    const t = svgEl('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'bubble-text' }, g);
+    t.textContent = text;
+    const bb = t.getBBox();
+    bg.setAttribute('x', bb.x - 6); bg.setAttribute('y', bb.y - 3);
+    bg.setAttribute('width', bb.width + 12); bg.setAttribute('height', bb.height + 6);
+    setTimeout(() => g.remove(), 1600);
+  }
+
+  // 點擊的地方：附近的人和動物嚇得跑開
+  const SCARE_R = 175;
+  function scare(x, y) {
+    const scaredFlocks = new Set();
+    animals.forEach((a) => {
+      const ay = a.y + (a.mode === 'sky' ? -40 : 0);
+      const d = Math.hypot(a.x - x, ay - y);
+      if (d > SCARE_R) return;
+      const ux = (a.x - x) / (d || 1), uy = (a.y - y) / (d || 1);
+      if (a.kind === 'capy') { if (Math.random() < 0.7) sayAt(a.x, a.y - 30, '……（淡定）'); return; }
+      const flock = flocks.find((f) => f.birds.includes(a));
+      if (flock) {
+        if (a.mode === 'ground' && !scaredFlocks.has(flock)) { scaredFlocks.add(flock); flyFlock(flock); sayAt(a.x, a.y - 22, '！'); }
+        return;
+      }
+      if (a.mode === 'sky') { a.tx = a.x + ux * 320; a.ty = a.y + uy * 320; a.fleeT = 2; return; }
+      a.tx = a.x + ux * (90 + Math.random() * 60); a.ty = a.y + uy * (90 + Math.random() * 60);
+      a.idle = 0; a.fleeT = 1.8;
+      sayAt(a.x, a.y - 30, '！');
+    });
+    walkers.forEach((w) => {
+      if (w.x == null || Math.hypot(w.x - x, w.y - y) > SCARE_R) return;
+      const p1 = w.rd.el.getPointAtLength(clamp(w.d + 8, 0, w.rd.len)), p0 = w.rd.el.getPointAtLength(clamp(w.d - 8, 0, w.rd.len));
+      w.dir = Math.hypot(p1.x - x, p1.y - y) > Math.hypot(p0.x - x, p0.y - y) ? 1 : -1;
+      w.pause = 0; w.fleeT = 2;
+      sayAt(w.x, w.y - 30, Math.random() < 0.3 ? '哇！' : '！');
     });
   }
 
@@ -965,8 +1307,9 @@
 
   const movers = [];
   const cars = [];
+  const walkers = []; // 路上的行人
   const roads = [];
-  const spots = { park: [], plaza: [], lake: null }; // 動物的活動範圍
+  const spots = { park: [], plaza: [], lake: null, wild: [] }; // 動物的活動範圍（wild = 城市外的原野）
   let bounds = { x0: 0, x1: 0, y0: 0, y1: 0 };
 
   /* ---------- 選取 / 篩選 的視覺狀態 ---------- */
@@ -1114,10 +1457,14 @@
     svg.addEventListener('click', (e) => {
       if (dragged) return;
       const critter = e.target.closest('.animal');
-      if (critter) { pokeAnimal(critter); return; }
+      if (critter) { pokeAnimal(critter); const p = toWorld(e.clientX, e.clientY); scare(p.x, p.y); return; }
       const tile = e.target.closest('.tile, .plate');
       if (tile && canOpen(itemById[tile.dataset.id])) openItem(tile.dataset.id);
-      else if (state.selected) closePanel();
+      else {
+        const p = toWorld(e.clientX, e.clientY);
+        scare(p.x, p.y); // 把附近的人跟動物嚇跑
+        if (state.selected) closePanel();
+      }
     });
     svg.addEventListener('keydown', (e) => {
       const tile = e.target.closest && e.target.closest('.tile');
@@ -1151,6 +1498,24 @@
         m.mover.setAttribute('cx', p.x); m.mover.setAttribute('cy', p.y);
       });
       if (state.animals) updateAnimals(dt);
+      walkers.forEach((w) => {
+        if (w.pause > 0) { w.pause -= dt; w.legs.setAttribute('d', 'M-1.4 -5 L-1.6 0 M1.4 -5 L1.6 0'); return; }
+        const flee = w.fleeT > 0;
+        if (flee) w.fleeT -= dt;
+        w.ph += dt * (flee ? 1.8 : 1);
+        w.d += w.v * (flee ? 5 : 1) * dt * w.dir;
+        const lo = w.rd.len * 0.12, hi = w.rd.len * 0.88; // 不要走進建築裡
+        if (w.d > hi || w.d < lo) { w.dir *= -1; w.d = clamp(w.d, lo, hi); w.pause = flee ? 0.3 : 0.8 + Math.random() * 2.5; }
+        const p = w.rd.el.getPointAtLength(w.d), q = w.rd.el.getPointAtLength(clamp(w.d + 1, 0, w.rd.len));
+        const ang = Math.atan2(q.y - p.y, q.x - p.x), off = (w.rd.main ? 15 : 13) * w.side;
+        const x = p.x - Math.sin(ang) * off, y = p.y + Math.cos(ang) * off;
+        const face = Math.cos(ang) * w.dir >= 0 ? 1 : -1;
+        const step = Math.sin(w.ph * 11);
+        w.legs.setAttribute('d', `M-1.4 -5 L${(-2 + step * 1.8).toFixed(1)} 0 M1.4 -5 L${(2 - step * 1.8).toFixed(1)} 0`);
+        w.x = x; w.y = y;
+        w.g.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+        w.sp.setAttribute('transform', `translate(0,${(-Math.abs(step) * 0.8).toFixed(2)}) scale(${face * 1.35},1.35)`);
+      });
       cars.forEach((c) => {
         c.d += c.v * dt * c.dir;
         if (c.d > c.rd.len) c.d -= c.rd.len; else if (c.d < 0) c.d += c.rd.len;
@@ -1332,11 +1697,46 @@
   /* =========================================================
    *  工具列
    * ========================================================= */
+  // 每個按鈕的說明（手機版點了會跳出小字）
+  const TOOL_TIP = {
+    labels: ['🏷️ 名牌', '建築下面的名字'],
+    lines: ['🔗 協作線', '建築之間的合作關係'],
+    animals: ['🐾 動物', '城市裡的小動物'],
+    log: ['📜 日誌', '畫面下方的城市日誌'],
+  };
+  let tipTimer = null;
+  function toolTip(btn, html) {
+    let tip = $('#tb-tip');
+    if (!tip) { tip = document.createElement('div'); tip.id = 'tb-tip'; document.body.appendChild(tip); }
+    tip.innerHTML = html;
+    const r = btn.getBoundingClientRect();
+    tip.style.left = `${clamp(r.left + r.width / 2, 80, window.innerWidth - 80)}px`;
+    tip.style.top = `${r.top - 10}px`;
+    tip.classList.remove('show'); void tip.offsetWidth; tip.classList.add('show');
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => tip.classList.remove('show'), 1600);
+  }
+
   function bindToolbar() {
-    $('#toolbar').addEventListener('click', (e) => {
+    const bar = $('#toolbar'), toggle = $('.tb-toggle', bar);
+    const setOpen = (open) => {
+      bar.classList.toggle('open', open);
+      toggle.setAttribute('aria-expanded', open);
+      toggle.setAttribute('aria-label', open ? '收起工具列' : '打開工具列');
+      toggle.firstChild.textContent = open ? '✕' : '🧰';
+    };
+    // 手機：點地圖就把工具列收起來
+    svg.addEventListener('pointerdown', () => { if (isMobile()) setOpen(false); });
+    bar.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      if (b.dataset.action === 'fit') { if (state.view !== 'map') setView('map'); fit(); return; }
+      if (b === toggle) { setOpen(!bar.classList.contains('open')); return; }
+      if (b.dataset.action === 'fit') {
+        if (state.view !== 'map') setView('map');
+        fit();
+        if (isMobile()) toolTip(b, '🦅 鳥瞰<small>看整座城市</small>');
+        return;
+      }
       const k = b.dataset.toggle;
       state[k] = !state[k];
       b.setAttribute('aria-pressed', state[k]);
@@ -1344,8 +1744,13 @@
       if (k === 'log') $('#log').classList.toggle('hide', !state.log);
       if (k === 'animals') svg.classList.toggle('no-animals', !state.animals);
       refreshMap();
+      if (isMobile()) {
+        if (k === 'paused') toolTip(b, state.paused ? '⏸️ 已暫停<small>畫面上的動畫都停下來</small>' : '▶️ 播放中<small>動畫繼續動</small>');
+        else if (TOOL_TIP[k]) toolTip(b, `${TOOL_TIP[k][0]}：${state[k] ? '開' : '關'}<small>${TOOL_TIP[k][1]}</small>`);
+      }
     });
   }
+
 
   /* =========================================================
    *  城市日誌
