@@ -519,3 +519,8 @@ body.paused .ferris-wheel, body.paused .plane { animation-play-state: paused; }
   #toolbar.open { gap: 0; padding: 5px; }
   #toolbar.open > button { padding: 9px 8px; }
 }
+
+/* 手機：海浪不動（整片海每格重畫太吃效能，縮放會閃） */
+@media (max-width: 720px), (hover: none) {
+  .waves { animation: none; }
+}

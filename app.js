@@ -147,8 +147,7 @@
       </pattern>
       <pattern id="grain" width="60" height="14" patternUnits="userSpaceOnUse">
         <path d="M0 7 q15 -3 30 0 t30 0" fill="none" stroke="rgba(140,95,50,.12)" stroke-width="1.2"/>
-      </pattern>
-      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>`;
+      </pattern>`;
 
     svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, fill: 'var(--sea)' }, svg);
     svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, fill: 'url(#sea)', class: 'waves' }, svg);
@@ -303,7 +302,7 @@
     }
 
     // ---- 我的城市：發光 → 陰影 → 木頭厚度 → 外框 ----
-    svgEl('path', { d: regionD, fill: '#fff3b0', filter: 'url(#glow)', opacity: 0.95, class: 'region-glow' }, layers.region);
+    [[70, 0.12], [46, 0.18], [24, 0.28]].forEach(([w, o]) => svgEl('path', { d: regionD, fill: 'none', stroke: '#fff3b0', 'stroke-width': w, 'stroke-linejoin': 'round', opacity: o, class: 'region-glow' }, layers.region));
     svgEl('path', { d: regionD, fill: '#2d3a40', opacity: 0.18, transform: 'translate(8,20)' }, layers.region);
     svgEl('path', { d: regionD, fill: WOOD_SIDE, transform: 'translate(0,11)' }, layers.region);
     svgEl('path', { d: regionD, fill: WOOD, stroke: WOOD_DARK, 'stroke-width': 5, 'stroke-linejoin': 'round' }, layers.region);
@@ -1342,19 +1341,42 @@
    * ========================================================= */
   let vb = { x: -500, y: -400, w: 1000, h: 800 };
   const applyVB = () => svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-  const rect = () => svg.getBoundingClientRect();
+  const rect = () => $('#mapwrap').getBoundingClientRect();
   const toWorld = (cx, cy) => { const r = rect(); return { x: vb.x + ((cx - r.left) / r.width) * vb.w, y: vb.y + ((cy - r.top) / r.height) * vb.h }; };
   const MINW = 280, MAXW = 6000;
 
-  function zoomAt(cx, cy, f) {
+  function zoomAt(cx, cy, f, preview = false) {
     const p = toWorld(cx, cy);
     const w2 = clamp(vb.w * f, MINW, MAXW), k = w2 / vb.w;
     vb = { x: p.x - (p.x - vb.x) * k, y: p.y - (p.y - vb.y) * k, w: w2, h: vb.h * k };
+    preview ? previewVB() : applyVB();
+  }
+
+  // 手勢中：地圖不重畫，只把畫好的圖用 GPU 平移／縮放（手機不會閃）；放手後再重畫一次
+  let gesture = null, previewRaf = 0;
+  function previewVB() {
+    if (!gesture) { gesture = { vb0: { ...vb } }; svg.style.transformOrigin = '0 0'; svg.style.willChange = 'transform'; state.gesturing = true; }
+    if (previewRaf) return;
+    previewRaf = requestAnimationFrame(() => {
+      previewRaf = 0;
+      if (!gesture) return;
+      const r = rect(), v0 = gesture.vb0;
+      const sc = v0.w / vb.w;
+      const tx = ((v0.x - vb.x) / vb.w) * r.width, ty = ((v0.y - vb.y) / vb.h) * r.height;
+      svg.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sc.toFixed(4)})`;
+    });
+  }
+  function commitVB() {
+    if (!gesture) return;
+    cancelAnimationFrame(previewRaf); previewRaf = 0;
+    gesture = null; state.gesturing = false;
     applyVB();
+    svg.style.transform = ''; svg.style.willChange = '';
   }
 
   let anim = null;
   function animateTo(target, dur = 650) {
+    commitVB();
     cancelAnimationFrame(anim);
     const from = { ...vb }, t0 = performance.now();
     const step = (now) => {
@@ -1427,7 +1449,7 @@
       const cur = { x: e.clientX, y: e.clientY };
       if (!dragged && Math.hypot(cur.x - startPt.x, cur.y - startPt.y) > 5) {
         dragged = true;
-        svg.setPointerCapture(e.pointerId);
+        try { svg.setPointerCapture(e.pointerId); } catch (_) { /* 某些瀏覽器不支援就算了 */ }
         svg.classList.add('dragging');
       }
       if (!dragged) { pts.set(e.pointerId, cur); return; }
@@ -1435,20 +1457,20 @@
       if (pts.size === 1) {
         vb.x -= ((cur.x - prev.x) / r.width) * vb.w;
         vb.y -= ((cur.y - prev.y) / r.height) * vb.h;
-        applyVB();
+        previewVB();
       }
       pts.set(e.pointerId, cur);
       if (pts.size === 2) {
         const [p1, p2] = [...pts.values()];
         const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-        if (pinchD) zoomAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, pinchD / d);
+        if (pinchD) zoomAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, pinchD / d, true);
         pinchD = d;
       }
     });
     const end = (e) => {
       pts.delete(e.pointerId);
       if (pts.size < 2) pinchD = 0;
-      if (!pts.size) svg.classList.remove('dragging');
+      if (!pts.size) { svg.classList.remove('dragging'); commitVB(); }
     };
     svg.addEventListener('pointerup', end);
     svg.addEventListener('pointercancel', end);
@@ -1490,7 +1512,7 @@
   function tick(now) {
     const dt = clamp((now - lastT) / 1000, 0, 0.05);
     lastT = now;
-    if (!state.paused && state.view === 'map') {
+    if (!state.paused && !state.gesturing && state.view === 'map') {
       if (state.movers) movers.forEach((m) => {
         if (m.mover.classList.contains('hidden') || !m.len) return;
         m.t = (m.t + dt * m.speed * (300 / Math.max(120, m.len)) ) % 1;
