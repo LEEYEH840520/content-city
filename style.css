@@ -524,3 +524,11 @@ body.paused .ferris-wheel, body.paused .plane { animation-play-state: paused; }
 @media (max-width: 720px), (hover: none) {
   .waves { animation: none; }
 }
+
+/* ---------- 背景音樂按鈕 ---------- */
+.music-btn { font-size: 16px; font-weight: 400; position: relative; }
+.music-btn.on::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  border: 2px solid var(--accent); opacity: .6; animation: music-ring 1.8s ease-out infinite;
+}
+@keyframes music-ring { from { transform: scale(.9); opacity: .7; } to { transform: scale(1.35); opacity: 0; } }

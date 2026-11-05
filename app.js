@@ -1818,6 +1818,51 @@
   }
 
   /* =========================================================
+   *  背景音樂：第一次點畫面才開始（瀏覽器不允許自動出聲）；右上角可以開關，會記住
+   * ========================================================= */
+  function bindMusic() {
+    const audio = $('#bgm'), btn = $('#music-btn');
+    if (!audio || !btn) return;
+    const KEY = 'content-city-music', VOL = 0.35;
+    let want = true;
+    try { want = localStorage.getItem(KEY) !== 'off'; } catch (_) {}
+    let fadeT = 0;
+    const ui = (on) => { btn.textContent = on ? '🔊' : '🔇'; btn.setAttribute('aria-pressed', on); btn.classList.toggle('on', on); };
+    const fade = (to, done) => {
+      clearInterval(fadeT);
+      fadeT = setInterval(() => {
+        const v = audio.volume + (to > audio.volume ? 0.03 : -0.05);
+        if ((to > audio.volume && v >= to) || (to <= audio.volume && v <= to)) { audio.volume = Math.max(0, Math.min(1, to)); clearInterval(fadeT); done && done(); }
+        else audio.volume = Math.max(0, Math.min(1, v));
+      }, 60);
+    };
+    const play = () => {
+      audio.volume = 0;
+      const p = audio.play();
+      (p && p.then ? p : Promise.resolve()).then(() => { ui(true); fade(VOL); }).catch(() => ui(false));
+    };
+    const stop = () => { ui(false); fade(0, () => audio.pause()); };
+    btn.addEventListener('click', () => {
+      want = audio.paused;
+      try { localStorage.setItem(KEY, want ? 'on' : 'off'); } catch (_) {}
+      want ? play() : stop();
+    });
+    // 第一次點畫面（不是點音樂鈕）就開始播
+    const first = (e) => {
+      if (e.target.closest && e.target.closest('#music-btn')) return;
+      document.removeEventListener('pointerdown', first, true);
+      if (want && audio.paused) play();
+    };
+    document.addEventListener('pointerdown', first, true);
+    // 切到別的分頁或 App 就暫停，回來再繼續
+    let resume = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { resume = !audio.paused; audio.pause(); }
+      else if (resume && want) play();
+    });
+  }
+
+  /* =========================================================
    *  開場導覽
    * ========================================================= */
   function bindIntro(force = false) {
@@ -1852,6 +1897,7 @@
     buildList();
     bindPanZoom();
     bindToolbar();
+    bindMusic();
     bindSheet();
     $$('.views button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
     $('#help-btn').addEventListener('click', () => bindIntro(true));

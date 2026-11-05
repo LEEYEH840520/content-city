@@ -32,6 +32,7 @@
       <button data-view="map" class="active" role="tab" aria-selected="true">🗺️ 地圖</button>
       <button data-view="list" role="tab" aria-selected="false">☰ 清單</button>
     </nav>
+    <button class="help-btn music-btn" id="music-btn" aria-label="背景音樂" aria-pressed="false" title="背景音樂">🔇</button>
     <button class="help-btn" id="help-btn" aria-label="重新觀看導覽">?</button>
   </header>
 
@@ -100,6 +101,9 @@
       </div>
     </div>
   </div>
+
+  <!-- 背景音樂（要等使用者點過畫面才會開始播，瀏覽器規定） -->
+  <audio id="bgm" src="assets/bgm.mp3" loop preload="none"></audio>
 
   <script src="data.js"></script>
   <script src="app.js"></script>
