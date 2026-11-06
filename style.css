@@ -537,7 +537,6 @@ body.paused .ferris-wheel, body.paused .plane { animation-play-state: paused; }
 /* ---------- 日夜光影 ---------- */
 #tint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: multiply; }
 #tint .tint-fill { fill: var(--tint, transparent); transition: fill 2.5s ease; }
-#tint .tint-hole { fill: #000; transition: fill-opacity 2.5s ease; }
 #lights { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: var(--night, 0); mix-blend-mode: screen; transition: opacity 2.5s ease; }
 #lights .flicker { animation: lamp-flicker 4s ease-in-out infinite alternate; }
 #lights .streetlamp:nth-of-type(3n) { animation: lamp-flicker 3s ease-in-out infinite alternate; }
@@ -611,10 +610,11 @@ body.paused #sun::before, body.paused .star { animation-play-state: paused; }
 }
 
 /* 夜晚：建築外框、名牌亮起來 */
-#lights .edge-halo { fill: none; stroke: #ffcf6b; stroke-width: 12; opacity: .28; }
-#lights .edge-line { fill: none; stroke: #ffe7a8; stroke-width: 2.6; opacity: .95; animation: edge-glow 3.2s ease-in-out infinite alternate; }
-#lights .edge-line.thin { stroke-width: 1.8; opacity: .8; }
-@keyframes edge-glow { from { opacity: .7; } to { opacity: 1; } }
 #labels { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #labels .plate:not(.static) { pointer-events: auto; }
 .no-labels .plate { opacity: 0; }
+
+/* 夜晚開燈：建築的輪廓線像燈串一樣亮起來 */
+#lights .neon-halo { opacity: .22; }
+#lights .neon-line { opacity: .9; animation: neon-breathe 3.6s ease-in-out infinite alternate; }
+@keyframes neon-breathe { from { opacity: .72; } to { opacity: .95; } }
