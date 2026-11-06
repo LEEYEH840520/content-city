@@ -156,6 +156,9 @@
       layers[n] = svgEl('g', { class: `layer-${n}` }, svg);
     });
 
+    // 名牌、地區名稱放在夜色上面的另一層 svg，晚上也一樣清楚
+    if (labelsSvg) { labelsSvg.innerHTML = ''; labelsSvg.appendChild(layers.plates); labelsSvg.appendChild(layers.districts); }
+
     const rand = seeded(20261106);
     const R = (a, b) => a + rand() * (b - a);
     const pos = Object.fromEntries(mapItems.map((i) => [i.id, P(i.id)]));
@@ -581,6 +584,52 @@
         for (let k = -6; k <= 6; k++) glow(ax + k * 20, ay + 18, 9, 'lamp', 'runway');
       }
     }
+    // 每一棟建築的外框、名牌、地區名稱：晚上也要亮起來，才看得清楚
+    const parseTf = (el) => {
+      const tf = el.getAttribute('transform') || '';
+      const t = /translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec(tf), sc = /scale\(([-\d.]+)/.exec(tf);
+      return { x: t ? +t[1] : 0, y: t ? +t[2] : 0, s: sc ? +sc[1] : 1 };
+    };
+    const edges = svgEl('g', { class: 'edge-lights' }, lightsSvg);
+    const holes = [];
+    $$('.tile', svg).forEach((tile) => {
+      const body = $('.tbody', tile);
+      if (!body) return;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      [...body.children].forEach((ch) => {
+        if (ch.classList.contains('ring')) return;
+        const b = ch.getBBox();
+        if (!b.width && !b.height) return;
+        x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+      });
+      if (!isFinite(x0)) return;
+      const { x, y, s } = parseTf(tile), pad = 5;
+      const box = { x: x + (x0 - pad) * s, y: y + (y0 - pad) * s, width: (x1 - x0 + pad * 2) * s, height: (y1 - y0 + pad * 2) * s, rx: 14 * s };
+      holes.push(box);
+      svgEl('rect', { ...box, class: 'edge-halo' }, edges);
+      svgEl('rect', { ...box, class: 'edge-line' }, edges);
+    });
+    // 夜色：整片蓋上去，但每棟建築的範圍挖空（越晚挖得越乾淨）
+    if (tintSvg) {
+      tintSvg.innerHTML = '';
+      const defs = svgEl('defs', {}, tintSvg);
+      const mask = svgEl('mask', { id: 'tint-holes', maskUnits: 'userSpaceOnUse', x: -20000, y: -20000, width: 40000, height: 40000 }, defs);
+      svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, fill: '#fff' }, mask);
+      holes.forEach((b) => svgEl('rect', { ...b, class: 'tint-hole' }, mask));
+      svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, class: 'tint-fill', mask: 'url(#tint-holes)' }, tintSvg);
+    }
+
+    // 名牌與地區名稱：加一圈亮框
+    $$('.plate, .district', labelsSvg || svg).forEach((g) => {
+      const bg = $('rect', g);
+      if (!bg) return;
+      const { x, y, s } = parseTf(g);
+      const bx = +bg.getAttribute('x'), by = +bg.getAttribute('y'), bw = +bg.getAttribute('width'), bh = +bg.getAttribute('height');
+      if (!bw) return;
+      const box = { x: x + bx * s, y: y + by * s, width: bw * s, height: bh * s, rx: 9 * s };
+      svgEl('rect', { ...box, class: 'edge-line thin' }, edges);
+    });
+
     // 拼圖上的小房子
     $$('.house', svg).forEach((h) => {
       const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(h.getAttribute('transform') || '');
@@ -1380,10 +1429,10 @@
       const off = !state.active.has(g.dataset.cat);
       g.classList.toggle('dim', off || (near && !near.has(id)));
       g.classList.toggle('sel', id === sel);
-      const plate = $(`.plate[data-id="${id}"]`, svg);
+      const plate = $(`.plate[data-id="${id}"]`, labelsSvg || svg);
       if (plate) plate.classList.toggle('dim', g.classList.contains('dim'));
     });
-    $$('.district', svg).forEach((g) => g.classList.toggle('dim', !state.active.has(g.dataset.cat)));
+    $$('.district', labelsSvg || svg).forEach((g) => g.classList.toggle('dim', !state.active.has(g.dataset.cat)));
     $$('.piece[data-cat]', svg).forEach((g) => g.classList.toggle('dim', !state.active.has(g.dataset.cat)));
     movers.forEach(({ path, mover, a, b }) => {
       const catOn = state.active.has(mapById[a].cat) && state.active.has(mapById[b].cat);
@@ -1394,6 +1443,7 @@
       mover.classList.toggle('hidden', !show || !state.movers);
     });
     svg.classList.toggle('no-labels', !state.labels);
+    if (labelsSvg) labelsSvg.classList.toggle('no-labels', !state.labels);
   }
 
   /* =========================================================
@@ -1401,12 +1451,16 @@
    * ========================================================= */
   let vb = { x: -500, y: -400, w: 1000, h: 800 };
   const lightsSvg = document.getElementById('lights'); // 夜晚的燈光（疊在變暗的地圖上面）
+  const labelsSvg = document.getElementById('labels'); // 名牌、地區名稱（不受夜色影響）
+  const tintSvg = document.getElementById('tint'); // 夜色（建築的位置會挖空，晚上建築仍然清楚）
   const applyVB = () => {
     const v = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
     svg.setAttribute('viewBox', v);
     if (lightsSvg) lightsSvg.setAttribute('viewBox', v);
+    if (labelsSvg) labelsSvg.setAttribute('viewBox', v);
+    if (tintSvg) tintSvg.setAttribute('viewBox', v);
   };
-  const setMapTransform = (tf, wc = '') => [svg, lightsSvg].forEach((el) => { if (!el) return; el.style.transformOrigin = '0 0'; el.style.transform = tf; el.style.willChange = wc; });
+  const setMapTransform = (tf, wc = '') => [svg, lightsSvg, labelsSvg, tintSvg].forEach((el) => { if (!el) return; el.style.transformOrigin = '0 0'; el.style.transform = tf; el.style.willChange = wc; });
   const rect = () => $('#mapwrap').getBoundingClientRect();
   const toWorld = (cx, cy) => { const r = rect(); return { x: vb.x + ((cx - r.left) / r.width) * vb.w, y: vb.y + ((cy - r.top) / r.height) * vb.h }; };
   const MINW = 280, MAXW = 6000;
@@ -1553,6 +1607,10 @@
         scare(p.x, p.y); // 把附近的人跟動物嚇跑
         if (state.selected) closePanel();
       }
+    });
+    if (labelsSvg) labelsSvg.addEventListener('click', (e) => {
+      const pl = e.target.closest('.plate');
+      if (pl && canOpen(itemById[pl.dataset.id])) openItem(pl.dataset.id);
     });
     svg.addEventListener('keydown', (e) => {
       const tile = e.target.closest && e.target.closest('.tile');
@@ -1963,6 +2021,8 @@
     root.setProperty('--tint', `rgba(${r | 0},${g | 0},${b | 0},${a.toFixed(3)})`);
     root.setProperty('--night', night.toFixed(3));
     document.body.classList.toggle('is-night', night > 0.5);
+    // 夜色挖洞的程度：越晚越乾淨（白天、黃昏建築跟著一起染色）
+    if (tintSvg) $$('.tint-hole', tintSvg).forEach((h) => h.setAttribute('fill-opacity', night.toFixed(3)));
 
     // 太陽：從右邊（東）升起、劃過上空、從左邊（西）落下；月亮在晚上走同樣的路
     const sun = $('#sun'), moon = $('#moon');
