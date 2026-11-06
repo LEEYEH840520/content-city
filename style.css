@@ -622,3 +622,13 @@ body.paused #sun::before, body.paused .star { animation-play-state: paused; }
 /* 夜晚：頭像、圖示、招牌的字像燈箱一樣亮著 */
 #labels .night-content { opacity: var(--night, 0); transition: opacity 2.5s ease; pointer-events: none; }
 #labels .night-content .civic-title { fill: #ffe7a8; paint-order: stroke; stroke: rgba(40, 52, 105, .55); stroke-width: 3px; }
+
+/* ---------- 手機縮放不閃爍 ---------- */
+/* 地圖區塊只讓我們自己處理手勢，瀏覽器不要縮放整頁 */
+#mapwrap, #mapwrap * { touch-action: none; }
+/* 手機上地圖的幾層一直放在 GPU 上，手勢開始／結束時不用臨時切換（切換的那一下會閃） */
+@media (hover: none), (max-width: 720px) {
+  #map, #lights, #labels, #tint { will-change: transform; transform: translateZ(0); }
+}
+/* 手勢進行中：地圖裡的動畫全部暫停，畫面不用一直重畫 */
+body.gesturing #mapwrap *, body.gesturing #mapwrap *::before, body.gesturing #mapwrap *::after { animation-play-state: paused !important; transition: none !important; }

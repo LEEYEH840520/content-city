@@ -1478,7 +1478,7 @@
     if (labelsSvg) labelsSvg.setAttribute('viewBox', v);
     if (tintSvg) tintSvg.setAttribute('viewBox', v);
   };
-  const setMapTransform = (tf, wc = '') => [svg, lightsSvg, labelsSvg, tintSvg].forEach((el) => { if (!el) return; el.style.transformOrigin = '0 0'; el.style.transform = tf; el.style.willChange = wc; });
+  const setMapTransform = (tf) => [svg, lightsSvg, labelsSvg, tintSvg].forEach((el) => { if (!el) return; el.style.transformOrigin = '0 0'; el.style.transform = tf; });
   const rect = () => $('#mapwrap').getBoundingClientRect();
   const toWorld = (cx, cy) => { const r = rect(); return { x: vb.x + ((cx - r.left) / r.width) * vb.w, y: vb.y + ((cy - r.top) / r.height) * vb.h }; };
   const MINW = 280, MAXW = 6000;
@@ -1493,7 +1493,7 @@
   // 手勢中：地圖不重畫，只把畫好的圖用 GPU 平移／縮放（手機不會閃）；放手後再重畫一次
   let gesture = null, previewRaf = 0;
   function previewVB() {
-    if (!gesture) { gesture = { vb0: { ...vb } }; setMapTransform('', 'transform'); state.gesturing = true; }
+    if (!gesture) { gesture = { vb0: { ...vb } }; state.gesturing = true; document.body.classList.add('gesturing'); }
     if (previewRaf) return;
     previewRaf = requestAnimationFrame(() => {
       previewRaf = 0;
@@ -1501,13 +1501,13 @@
       const r = rect(), v0 = gesture.vb0;
       const sc = v0.w / vb.w;
       const tx = ((v0.x - vb.x) / vb.w) * r.width, ty = ((v0.y - vb.y) / vb.h) * r.height;
-      setMapTransform(`translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sc.toFixed(4)})`, 'transform');
+      setMapTransform(`translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sc.toFixed(4)})`);
     });
   }
   function commitVB() {
     if (!gesture) return;
     cancelAnimationFrame(previewRaf); previewRaf = 0;
-    gesture = null; state.gesturing = false;
+    gesture = null; state.gesturing = false; document.body.classList.remove('gesturing');
     applyVB();
     setMapTransform('');
   }
@@ -1571,7 +1571,13 @@
     animateTo(viewFor(cx, cy, w));
   }
 
+  function blockPageZoom() {
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
+    document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  }
+
   function bindPanZoom() {
+    blockPageZoom();
     const pts = new Map();
     let dragged = false, startPt = null, pinchD = 0;
 
