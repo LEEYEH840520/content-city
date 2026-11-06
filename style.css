@@ -618,3 +618,7 @@ body.paused #sun::before, body.paused .star { animation-play-state: paused; }
 #lights .neon-halo { opacity: .22; }
 #lights .neon-line { opacity: .9; animation: neon-breathe 3.6s ease-in-out infinite alternate; }
 @keyframes neon-breathe { from { opacity: .72; } to { opacity: .95; } }
+
+/* 夜晚：頭像、圖示、招牌的字像燈箱一樣亮著 */
+#labels .night-content { opacity: var(--night, 0); transition: opacity 2.5s ease; pointer-events: none; }
+#labels .night-content .civic-title { fill: #ffe7a8; paint-order: stroke; stroke: rgba(40, 52, 105, .55); stroke-width: 3px; }

@@ -627,6 +627,27 @@
       });
     });
 
+    // 燈箱：頭像、圖示、招牌和字，晚上像燈箱一樣亮著（放在夜色上面那層，夜晚才出現）
+    if (labelsSvg) {
+      $$('.night-content', labelsSvg).forEach((n) => n.remove());
+      const box = svgEl('g', { class: 'night-content' });
+      labelsSvg.insertBefore(box, labelsSvg.firstChild);
+      $$('.tile', svg).forEach((tile) => {
+        const body = $('.tbody', tile);
+        if (!body) return;
+        const g = svgEl('g', { transform: tile.getAttribute('transform') || '' }, box);
+        [...body.children].forEach((el) => {
+          const tag = el.tagName;
+          const fill = (el.getAttribute('fill') || '').toLowerCase();
+          const keep = tag === 'image' || tag === 'text'
+            || (tag === 'circle' && fill === '#fff')        // 頭像後面的白圈
+            || (tag === 'rect' && fill === '#fffdf7')       // 職能局、服務處的招牌
+            || (tag === 'path' && (el.getAttribute('stroke') || '').startsWith('rgba(91,70,54')); // 招牌上的分隔線
+          if (keep) g.appendChild(el.cloneNode(true));
+        });
+      });
+    }
+
     // 拼圖上的小房子
     $$('.house', svg).forEach((h) => {
       const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(h.getAttribute('transform') || '');
