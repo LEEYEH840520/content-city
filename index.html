@@ -32,6 +32,7 @@
       <button data-view="map" class="active" role="tab" aria-selected="true">🗺️ 地圖</button>
       <button data-view="list" role="tab" aria-selected="false">☰ 清單</button>
     </nav>
+    <button class="time-btn" id="time-btn" aria-label="時間與光影" title="時間與光影">☀️<span>--:--</span></button>
     <button class="help-btn music-btn" id="music-btn" aria-label="背景音樂" aria-pressed="false" title="背景音樂">🔇</button>
     <button class="help-btn" id="help-btn" aria-label="重新觀看導覽">?</button>
   </header>
@@ -39,6 +40,9 @@
   <main>
     <div id="mapwrap">
       <svg id="map" aria-label="內容城市地圖"></svg>
+      <div id="tint" aria-hidden="true"></div>
+      <svg id="lights" aria-hidden="true"></svg>
+      <div id="sky" aria-hidden="true"><div id="stars"></div><div id="sun"></div><div id="moon"></div></div>
     </div>
     <section id="list" hidden></section>
   </main>

@@ -526,6 +526,66 @@
     }
 
     movers.forEach((m) => { m.len = m.path.getTotalLength(); });
+    buildLights(pos, extra);
+  }
+
+  /* ---------- 夜晚的燈光：窗戶、路燈、燈塔、地標（畫在另一層，不會被夜色蓋暗） ---------- */
+  function buildLights(pos, extra) {
+    if (!lightsSvg) return;
+    lightsSvg.innerHTML = `<defs>
+      <radialGradient id="lg-warm"><stop offset="0" stop-color="#ffd98a" stop-opacity=".5"/><stop offset=".5" stop-color="#ffc56b" stop-opacity=".22"/><stop offset="1" stop-color="#ffb35c" stop-opacity="0"/></radialGradient>
+      <radialGradient id="lg-lamp"><stop offset="0" stop-color="#fff1c2" stop-opacity=".85"/><stop offset=".25" stop-color="#ffd27a" stop-opacity=".35"/><stop offset="1" stop-color="#ffc56b" stop-opacity="0"/></radialGradient>
+      <radialGradient id="lg-cool"><stop offset="0" stop-color="#d9f3ff" stop-opacity=".55"/><stop offset="1" stop-color="#9fd8ff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="lg-beam-r" x1="0" x2="1"><stop offset="0" stop-color="#fff2b8" stop-opacity=".9"/><stop offset="1" stop-color="#fff2b8" stop-opacity="0"/></linearGradient>
+      <linearGradient id="lg-beam-l" x1="1" x2="0"><stop offset="0" stop-color="#fff2b8" stop-opacity=".9"/><stop offset="1" stop-color="#fff2b8" stop-opacity="0"/></linearGradient>
+    </defs>`;
+    const glow = (x, y, r, kind = 'warm', cls = '') => svgEl('circle', { cx: x.toFixed(1), cy: y.toFixed(1), r, fill: `url(#lg-${kind})`, class: `glow ${cls}` }, lightsSvg);
+    // 建築
+    mapItems.forEach((it) => {
+      const p = pos[it.id];
+      const style = buildingStyle(it);
+      if (style === 'lighthouse') return;
+      const r = style === 'hall' ? 125 : style === 'civic' ? 125 : style === 'chip' ? 62 : 80;
+      glow(p.x, p.y + (style === 'chip' ? 30 : 40), r, 'warm', 'flicker');
+    });
+    // 燈塔：亮燈 + 兩道會掃動的光束
+    const lh = mapItems.find((it) => buildingStyle(it) === 'lighthouse');
+    if (lh) {
+      const { x, y } = pos[lh.id], ly = y - 62;
+      const g = svgEl('g', { class: 'lh-beams', transform: `translate(${x},${ly})` }, lightsSvg);
+      svgEl('path', { d: 'M4 0 L190 -40 L190 40 Z', fill: 'url(#lg-beam-r)' }, g);
+      svgEl('path', { d: 'M-4 0 L-190 -40 L-190 40 Z', fill: 'url(#lg-beam-l)' }, g);
+      glow(x, ly, 46, 'warm');
+    }
+    // 路燈：沿著馬路每隔一段一盞
+    roads.forEach((rd) => {
+      for (let d = 50; d < rd.len - 40; d += 95) {
+        const p = rd.el.getPointAtLength(d);
+        glow(p.x, p.y, 22, 'lamp', 'streetlamp');
+      }
+    });
+    // 地標、噴水池
+    extra.forEach((e) => {
+      if (LANDMARK[e.kind]) glow(e.x, e.y + 24, 78, 'warm', 'flicker');
+      else if (e.kind === 'plaza') glow(e.x, e.y, 34, 'cool');
+      else if (e.kind === 'lake') glow(e.x, e.y, 60, 'cool');
+    });
+    // 機場
+    const ap = $('.lm-airport', svg);
+    if (ap) {
+      const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(ap.getAttribute('transform'));
+      if (m) {
+        const ax = +m[1], ay = +m[2];
+        glow(ax - 50, ay - 20, 70, 'warm');
+        glow(ax + 36, ay - 90, 30, 'cool');
+        for (let k = -6; k <= 6; k++) glow(ax + k * 20, ay + 18, 9, 'lamp', 'runway');
+      }
+    }
+    // 拼圖上的小房子
+    $$('.house', svg).forEach((h) => {
+      const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(h.getAttribute('transform') || '');
+      if (m) glow(+m[1], +m[2] + 4, 20, 'lamp', 'flicker');
+    });
   }
 
   /* ---------- 城市地標（裝飾用、不能點） ---------- */
@@ -1340,7 +1400,13 @@
    *  平移 / 縮放（只改 viewBox，不碰網址）
    * ========================================================= */
   let vb = { x: -500, y: -400, w: 1000, h: 800 };
-  const applyVB = () => svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  const lightsSvg = document.getElementById('lights'); // 夜晚的燈光（疊在變暗的地圖上面）
+  const applyVB = () => {
+    const v = `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
+    svg.setAttribute('viewBox', v);
+    if (lightsSvg) lightsSvg.setAttribute('viewBox', v);
+  };
+  const setMapTransform = (tf, wc = '') => [svg, lightsSvg].forEach((el) => { if (!el) return; el.style.transformOrigin = '0 0'; el.style.transform = tf; el.style.willChange = wc; });
   const rect = () => $('#mapwrap').getBoundingClientRect();
   const toWorld = (cx, cy) => { const r = rect(); return { x: vb.x + ((cx - r.left) / r.width) * vb.w, y: vb.y + ((cy - r.top) / r.height) * vb.h }; };
   const MINW = 280, MAXW = 6000;
@@ -1355,7 +1421,7 @@
   // 手勢中：地圖不重畫，只把畫好的圖用 GPU 平移／縮放（手機不會閃）；放手後再重畫一次
   let gesture = null, previewRaf = 0;
   function previewVB() {
-    if (!gesture) { gesture = { vb0: { ...vb } }; svg.style.transformOrigin = '0 0'; svg.style.willChange = 'transform'; state.gesturing = true; }
+    if (!gesture) { gesture = { vb0: { ...vb } }; setMapTransform('', 'transform'); state.gesturing = true; }
     if (previewRaf) return;
     previewRaf = requestAnimationFrame(() => {
       previewRaf = 0;
@@ -1363,7 +1429,7 @@
       const r = rect(), v0 = gesture.vb0;
       const sc = v0.w / vb.w;
       const tx = ((v0.x - vb.x) / vb.w) * r.width, ty = ((v0.y - vb.y) / vb.h) * r.height;
-      svg.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sc.toFixed(4)})`;
+      setMapTransform(`translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sc.toFixed(4)})`, 'transform');
     });
   }
   function commitVB() {
@@ -1371,7 +1437,7 @@
     cancelAnimationFrame(previewRaf); previewRaf = 0;
     gesture = null; state.gesturing = false;
     applyVB();
-    svg.style.transform = ''; svg.style.willChange = '';
+    setMapTransform('');
   }
 
   let anim = null;
@@ -1733,7 +1799,9 @@
     tip.innerHTML = html;
     const r = btn.getBoundingClientRect();
     tip.style.left = `${clamp(r.left + r.width / 2, 80, window.innerWidth - 80)}px`;
-    tip.style.top = `${r.top - 10}px`;
+    const below = r.top < 120;
+    tip.classList.toggle('below', below);
+    tip.style.top = below ? `${r.bottom + 10}px` : `${r.top - 10}px`;
     tip.classList.remove('show'); void tip.offsetWidth; tip.classList.add('show');
     clearTimeout(tipTimer);
     tipTimer = setTimeout(() => tip.classList.remove('show'), 1600);
@@ -1818,6 +1886,157 @@
   }
 
   /* =========================================================
+   *  日夜光影：依「訪客自己的當地時間」計算日出日落、太陽月亮位置與城市光線
+   * ========================================================= */
+  const LAT = 25; // 以台灣的緯度估日照長度
+  const DAY_MODES = [
+    { id: 'auto', label: '現在時間' },
+    { id: 'dawn', label: '日出' },
+    { id: 'noon', label: '白天' },
+    { id: 'dusk', label: '黃昏' },
+    { id: 'night', label: '夜晚' },
+  ];
+  let dayMode = 0;
+  let lastPhase = '';
+
+  function sunTimes(date) {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const n = Math.floor((date - start) / 864e5);
+    const decl = 23.44 * Math.sin((2 * Math.PI * (284 + n)) / 365) * Math.PI / 180;
+    const cosH = -Math.tan(LAT * Math.PI / 180) * Math.tan(decl);
+    const H = Math.acos(clamp(cosH, -1, 1)) * 180 / Math.PI;
+    const half = H / 15; // 半天的小時數
+    const noon = 11.95;
+    return { rise: noon - half, set: noon + half };
+  }
+
+  // 月相 0 = 新月、0.5 = 滿月
+  function moonPhase(date) {
+    const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14);
+    const d = (date.getTime() - ref) / 864e5;
+    return ((d % syn) + syn) % syn / syn;
+  }
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+  // 依太陽高度（-1 ~ 1）決定整座城市蓋上的顏色
+  const TINT_KEYS = [
+    [-1, [40, 52, 105, 0.74]],
+    [-0.28, [40, 52, 105, 0.74]],
+    [-0.1, [112, 98, 170, 0.6]],
+    [0, [238, 138, 150, 0.52]],
+    [0.12, [255, 196, 140, 0.4]],
+    [0.32, [255, 236, 205, 0.12]],
+    [0.5, [255, 255, 255, 0]],
+    [1, [255, 255, 255, 0]],
+  ];
+  function tintAt(e) {
+    for (let i = 0; i < TINT_KEYS.length - 1; i++) {
+      const [e0, c0] = TINT_KEYS[i], [e1, c1] = TINT_KEYS[i + 1];
+      if (e >= e0 && e <= e1) {
+        const t = (e - e0) / (e1 - e0 || 1);
+        return c0.map((v, k) => lerp(v, c1[k], t));
+      }
+    }
+    return TINT_KEYS[TINT_KEYS.length - 1][1];
+  }
+
+  function applyDaylight() {
+    const now = new Date();
+    const { rise, set } = sunTimes(now);
+    const mode = DAY_MODES[dayMode].id;
+    let t = now.getHours() + now.getMinutes() / 60;
+    if (mode === 'dawn') t = rise + 0.12;
+    else if (mode === 'noon') t = (rise + set) / 2 - 1.5;
+    else if (mode === 'dusk') t = set - 0.12;
+    else if (mode === 'night') t = 22;
+
+    const dayLen = set - rise;
+    let e, sunP = null, moonP = null;
+    if (t >= rise && t <= set) { sunP = (t - rise) / dayLen; e = Math.sin(Math.PI * sunP); }
+    else { moonP = (((t - set) + 24) % 24) / (24 - dayLen); e = -Math.sin(Math.PI * moonP); }
+    // 太陽剛下山／快升起時，天還有點亮
+    if (sunP === null) { const edge = Math.min(moonP, 1 - moonP) * (24 - dayLen); if (edge < 0.6) e = -edge / 0.6 * 0.12; }
+
+    const night = clamp((-e - 0.02) / 0.22, 0, 1);
+    const root = document.documentElement.style;
+    const [r, g, b, a] = tintAt(e);
+    root.setProperty('--tint', `rgba(${r | 0},${g | 0},${b | 0},${a.toFixed(3)})`);
+    root.setProperty('--night', night.toFixed(3));
+    document.body.classList.toggle('is-night', night > 0.5);
+
+    // 太陽：從右邊（東）升起、劃過上空、從左邊（西）落下；月亮在晚上走同樣的路
+    const sun = $('#sun'), moon = $('#moon');
+    const place = (el, p, show) => {
+      if (!el) return;
+      el.style.opacity = show ? 1 : 0;
+      if (p == null) return;
+      el.style.left = `${(86 - 64 * p).toFixed(2)}%`;
+      el.style.top = `${(150 - Math.sin(Math.PI * p) * 80).toFixed(1)}px`;
+    };
+    place(sun, sunP ?? (moonP < 0.5 ? 1 : 0), e > -0.06);
+    place(moon, moonP ?? (sunP < 0.5 ? 1 : 0), e < 0.06);
+    if (moon) {
+      // 月相：陰影從右邊進來（虧）、往左邊退開（盈）；滿月時完全移開
+      const ph = moonPhase(now);
+      const off = ph < 0.5 ? -(ph * 2) * 105 : (1 - (ph - 0.5) * 2) * 105;
+      moon.style.setProperty('--moonx', `${off.toFixed(1)}%`);
+    }
+
+    // 影子：背向太陽，太陽越低影子越長；晚上影子很淡
+    const sp = sunP ?? 0.5, low = 1 - Math.max(0, e);
+    const mapStyle = svg.style;
+    mapStyle.setProperty('--shx', `${((sp - 0.5) * 2 * 14 * low).toFixed(1)}px`);
+    mapStyle.setProperty('--shy', `${(3 + low * 6).toFixed(1)}px`);
+    mapStyle.setProperty('--shl', (1 + low * 0.45).toFixed(2));
+    mapStyle.setProperty('--sho', (sunP === null ? 0.35 : 1).toFixed(2));
+
+    // 時間按鈕
+    const btn = $('#time-btn');
+    if (btn) {
+      const icon = night > 0.5 ? '🌙' : e < 0.15 && sunP !== null ? (sunP < 0.5 ? '🌅' : '🌇') : e < 0 ? '🌆' : '☀️';
+      const hh = Math.floor(t) % 24, mm = Math.floor((t % 1) * 60);
+      btn.firstChild.textContent = icon;
+      $('span', btn).textContent = mode === 'auto' ? `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` : DAY_MODES[dayMode].label;
+      btn.classList.toggle('preview', mode !== 'auto');
+    }
+
+    // 城市日誌報時
+    const phase = night > 0.5 ? 'night' : sunP === null ? 'twilight' : e < 0.15 ? (sunP < 0.5 ? 'dawn' : 'dusk') : 'day';
+    if (lastPhase && phase !== lastPhase && mode === 'auto') {
+      const msg = { dawn: '🌅 太陽升起來了，城市醒了', day: '☀️ 晴朗的白天', dusk: '🌇 夕陽西下，天空染成橘色', twilight: '🌆 天色慢慢暗下來', night: '🌙 夜深了，城市的燈都亮了' }[phase];
+      if (msg && typeof pushLog === 'function') pushLog(msg, null, true);
+    }
+    lastPhase = phase;
+  }
+
+  function bindDaylight() {
+    // 星星
+    const stars = $('#stars');
+    if (stars && !stars.children.length) {
+      const rnd = seeded(77);
+      for (let i = 0; i < 46; i++) {
+        const st = document.createElement('i');
+        st.className = 'star';
+        st.style.left = `${(rnd() * 100).toFixed(1)}%`;
+        st.style.top = `${(rnd() * 70).toFixed(1)}%`;
+        st.style.animationDelay = `${(rnd() * 3).toFixed(2)}s`;
+        if (rnd() < 0.25) st.classList.add('big');
+        stars.appendChild(st);
+      }
+    }
+    const btn = $('#time-btn');
+    if (btn) btn.addEventListener('click', () => {
+      dayMode = (dayMode + 1) % DAY_MODES.length;
+      applyDaylight();
+      const m = DAY_MODES[dayMode];
+      toolTip(btn, m.id === 'auto' ? '🕒 跟著現在時間<small>城市的光影會隨時間變化</small>' : `👀 預覽：${m.label}<small>再點一下切換，最後回到現在時間</small>`);
+    });
+    applyDaylight();
+    setInterval(applyDaylight, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) applyDaylight(); });
+  }
+
+  /* =========================================================
    *  背景音樂：第一次點畫面才開始（瀏覽器不允許自動出聲）；右上角可以開關，會記住
    * ========================================================= */
   function bindMusic() {
@@ -1898,6 +2117,7 @@
     bindPanZoom();
     bindToolbar();
     bindMusic();
+    bindDaylight();
     bindSheet();
     $$('.views button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
     $('#help-btn').addEventListener('click', () => bindIntro(true));
