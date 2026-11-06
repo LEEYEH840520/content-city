@@ -632,3 +632,12 @@ body.paused #sun::before, body.paused .star { animation-play-state: paused; }
 }
 /* 手勢進行中：地圖裡的動畫全部暫停，畫面不用一直重畫 */
 body.gesturing #mapwrap *, body.gesturing #mapwrap *::before, body.gesturing #mapwrap *::after { animation-play-state: paused !important; transition: none !important; }
+
+/* 上方圓形按鈕：拿掉瀏覽器預設樣式（iPhone 會加內距），內容一律置中 */
+.help-btn, .music-btn {
+  -webkit-appearance: none; appearance: none; padding: 0; margin: 0;
+  display: inline-grid; place-items: center; line-height: 1; color: var(--ink);
+}
+.music-btn svg { display: block; }
+.music-btn:not(.on) { color: #9a8f88; }
+.time-btn { -webkit-appearance: none; appearance: none; line-height: 1; }
