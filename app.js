@@ -27,6 +27,28 @@
     return `rgb(${r},${g},${b})`;
   };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  /* ---------- 手繪線條圖示（取代 emoji） ---------- */
+  const ICON_PATHS = {
+    map: '<path d="M3.5 6.6l5-2.1 7.2 2.6 4.8-2v13l-4.8 2-7.2-2.6-5 2.1z"/><path d="M8.5 4.6v12.9M15.7 7.1v12.9"/>',
+    list: '<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.8" cy="7" r=".9"/><circle cx="4.8" cy="12" r=".9"/><circle cx="4.8" cy="17" r=".9"/>',
+    tag: '<path d="M3.5 11.6V4.4a.9.9 0 0 1 .9-.9h7.2l9 9-8.1 8.1z"/><circle cx="8" cy="8" r="1.5"/>',
+    link: '<path d="M10.2 13.8a3.8 3.8 0 0 1 0-5.4l2.6-2.6a3.8 3.8 0 0 1 5.4 5.4l-1.4 1.4"/><path d="M13.8 10.2a3.8 3.8 0 0 1 0 5.4l-2.6 2.6a3.8 3.8 0 0 1-5.4-5.4l1.4-1.4"/>',
+    paw: '<path d="M8.3 15.6c.6-2.4 2.1-3.6 3.7-3.6s3.1 1.2 3.7 3.6c.5 2-1 3.4-3.7 3.4s-4.2-1.4-3.7-3.4z"/><ellipse cx="6" cy="10.4" rx="1.6" ry="2.1"/><ellipse cx="9.6" cy="6.6" rx="1.6" ry="2.2"/><ellipse cx="14.4" cy="6.6" rx="1.6" ry="2.2"/><ellipse cx="18" cy="10.4" rx="1.6" ry="2.1"/>',
+    pause: '<path d="M9 5.5v13M15 5.5v13"/>',
+    play: '<path d="M8 5.5l10.5 6.5L8 18.5z"/>',
+    fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><circle cx="12" cy="12" r="2.4"/>',
+    log: '<path d="M6.5 3.8h9.3l2.7 2.7v13.7H6.5z"/><path d="M9.3 9.4h6.4M9.3 12.6h6.4M9.3 15.8h4"/>',
+    tools: '<path d="M4 7.5h9M17.5 7.5H20M4 16.5h3M11.5 16.5H20"/><circle cx="15.2" cy="7.5" r="2.2"/><circle cx="9.2" cy="16.5" r="2.2"/>',
+    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+    moon: '<path d="M19.6 14.6A7.9 7.9 0 1 1 9.4 4.4a6.3 6.3 0 0 0 10.2 10.2z"/>',
+    sunrise: '<path d="M7.5 16a4.5 4.5 0 0 1 9 0M3 19.5h18M12 4v5M9.6 6.6L12 4l2.4 2.6M4.6 12.4l1.5 1M19.4 12.4l-1.5 1"/>',
+    sunset: '<path d="M7.5 16a4.5 4.5 0 0 1 9 0M3 19.5h18M12 4v5M9.6 6.4L12 9l2.4-2.6M4.6 12.4l1.5 1M19.4 12.4l-1.5 1"/>',
+  };
+  const icon = (name, size = 20) => `<svg class="ico" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`;
+  // 名稱的第一個字（沒有照片時用來當圓形字章）
+  const initial = (it) => [...String(it.short || it.title || '')].find((ch) => ch.trim()) || '・';
   const isMobile = () => window.innerWidth <= 720;
 
   /* ---------- 資料整理 ---------- */
@@ -225,6 +247,12 @@
       return { x: cx0 + Math.cos(a) * r2 * 1.12, y: cy0 + Math.sin(a) * r2 * 0.92 };
     });
     const islandD = smoothPath(islandPts);
+    islandPoly = islandPts;
+    {
+      const xs2 = islandPts.map((p) => p.x), ys2 = islandPts.map((p) => p.y);
+      const ix0 = Math.min(...xs2), ix1 = Math.max(...xs2), iy0 = Math.min(...ys2);
+      skyArc = { x0: ix0 + (ix1 - ix0) * 0.12, x1: ix1 - (ix1 - ix0) * 0.12, base: iy0 + 40, amp: 150 };
+    }
     svgEl('path', { d: islandD, fill: 'rgba(255,255,255,.5)', stroke: 'rgba(255,255,255,.45)', 'stroke-width': 70, 'stroke-linejoin': 'round' }, layers.island);
     svgEl('path', { d: islandD, fill: '#2d4a52', opacity: 0.14, transform: 'translate(10,22)' }, layers.island);
     svgEl('path', { d: islandD, fill: '#c9a273', transform: 'translate(0,12)' }, layers.island);
@@ -437,7 +465,7 @@
       const y = Math.min(...pts.map((p) => p.y)) - T * 0.5;
       const g = svgEl('g', { class: 'district', 'data-cat': c.id, transform: `translate(${x},${y})` }, layers.districts);
       const t = svgEl('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'district-text' }, g);
-      t.textContent = `${c.icon} ${c.name}`;
+      t.textContent = c.name;
       const bb = t.getBBox();
       const bg = svgEl('rect', { x: bb.x - 12, y: bb.y - 5, width: bb.width + 24, height: bb.height + 10, rx: 11, fill: '#fffdf7', stroke: shade(c.color, -0.3), class: 'district-bg' }, g);
       g.insertBefore(bg, t);
@@ -530,6 +558,61 @@
 
     movers.forEach((m) => { m.len = m.path.getTotalLength(); });
     buildLights(pos, extra);
+    buildSky();
+  }
+
+  /* ---------- 天空：太陽、月亮畫在地圖上（跟著地圖移動、縮放），星星灑在海上 ---------- */
+  function buildSky() {
+    // 太陽、月亮走在城市上空（一打開網頁就看得到），跟著地圖移動縮放
+    skyArc = { x0: bounds.x0 + 80, x1: bounds.x1 - 80, base: bounds.y0 + 150, amp: 100 };
+    if (!labelsSvg) return;
+    $$('.celestial', labelsSvg).forEach((n) => n.remove());
+    const sky = svgEl('g', { class: 'celestial' });
+    labelsSvg.insertBefore(sky, labelsSvg.firstChild);
+    const S = { stroke: OUT, 'stroke-width': 2.6 };
+    // 太陽
+    const sun = svgEl('g', { id: 'w-sun', opacity: 0 }, sky);
+    svgEl('circle', { cx: 0, cy: 0, r: 62, fill: 'rgba(255, 210, 90, .22)' }, sun);
+    const rays = svgEl('g', { class: 'sun-rays' }, sun);
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2, r0 = 40, r1 = k % 2 ? 50 : 56;
+      svgEl('path', { d: `M${(Math.cos(a) * r0).toFixed(1)} ${(Math.sin(a) * r0).toFixed(1)} L${(Math.cos(a) * r1).toFixed(1)} ${(Math.sin(a) * r1).toFixed(1)}`, stroke: '#f2b53a', 'stroke-width': 5, 'stroke-linecap': 'round' }, rays);
+    }
+    svgEl('circle', { cx: 0, cy: 0, r: 32, fill: '#ffd54a', ...S }, sun);
+    svgEl('path', { d: 'M-15 -12 a19 19 0 0 1 13 -8', stroke: '#fff6c6', 'stroke-width': 4, fill: 'none', 'stroke-linecap': 'round' }, sun);
+    // 月亮（含月相）
+    const defs = svgEl('defs', {}, sky);
+    const cp = svgEl('clipPath', { id: 'moon-clip' }, defs);
+    svgEl('circle', { cx: 0, cy: 0, r: 26 }, cp);
+    const moon = svgEl('g', { id: 'w-moon', opacity: 0 }, sky);
+    svgEl('circle', { cx: 0, cy: 0, r: 44, fill: 'rgba(253, 243, 207, .16)' }, moon);
+    svgEl('circle', { cx: 0, cy: 0, r: 26, fill: '#fdf3cf' }, moon);
+    [[-8, -6, 4.5], [7, 4, 3.5], [-2, 10, 2.6]].forEach(([x, y, r]) => svgEl('circle', { cx: x, cy: y, r, fill: 'rgba(200, 186, 140, .5)' }, moon));
+    svgEl('circle', { id: 'w-moon-shadow', cx: 0, cy: 0, r: 27, fill: 'rgba(40, 52, 105, .9)', 'clip-path': 'url(#moon-clip)' }, moon);
+    svgEl('circle', { cx: 0, cy: 0, r: 26, fill: 'none', ...S }, moon);
+
+    // 星星：灑在島外面的海上（晚上才看得到）
+    if (lightsSvg) {
+      $$('.wstars', lightsSvg).forEach((n) => n.remove());
+      const g = svgEl('g', { class: 'wstars' }, lightsSvg);
+      const rnd = seeded(77);
+      const inside = (p, pts) => {
+        let c = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const a = pts[i], b = pts[j];
+          if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c;
+        }
+        return c;
+      };
+      const xs = islandPoly.map((p) => p.x), ys = islandPoly.map((p) => p.y);
+      const bx0 = Math.min(...xs) - 500, bx1 = Math.max(...xs) + 500, by0 = Math.min(...ys) - 400, by1 = Math.max(...ys) + 300;
+      for (let k = 0, n = 0; k < 900 && n < 110; k++) {
+        const p = { x: bx0 + rnd() * (bx1 - bx0), y: by0 + rnd() * (by1 - by0) };
+        if (inside(p, islandPoly)) continue;
+        n++;
+        svgEl('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: (1.6 + rnd() * 2.2).toFixed(1), fill: '#fff', class: `wstar${n % 3 ? '' : ' slow'}` }, g);
+      }
+    }
   }
 
   /* ---------- 夜晚的燈光：窗戶、路燈、燈塔、地標（畫在另一層，不會被夜色蓋暗） ---------- */
@@ -830,12 +913,12 @@
   }
 
   function drawCivic(g, it, c) {
-    const rows = it.members.map((m) => `${m.icon || c.icon}  ${m.short || m.title}`);
+    const rows = it.members.map((m) => m.short || m.title);
     // 實際量字的寬高（手機版字比較大，房子會跟著變寬）
     const itemBox = rows.map((r) => measureText(r, 'civic-item'));
-    const titleW = measureText(`${c.icon} ${c.name}`, 'civic-title').width;
+    const titleW = measureText(c.name, 'civic-title').width;
     const rowH = Math.max(...itemBox.map((b) => b.height)) * 1.45, boardH = rows.length * rowH + 14;
-    const W = Math.max(176, Math.max(...itemBox.map((b) => b.width)) + 64, titleW + 70);
+    const W = Math.max(176, Math.max(...itemBox.map((b) => b.width)) + 76, titleW + 70);
     const fy0 = -boardH / 2 - 10, fy1 = boardH / 2 + 18, roofTop = fy0 - 46;
     const col = pastel(c.color), dark = shade(c.color, -0.25);
     svgEl('ellipse', { cx: 4, cy: fy1 + 12, rx: W / 2 + 8, ry: 11, class: 'tshadow' }, g);
@@ -851,13 +934,14 @@
     // 屋頂 + 名稱
     svgEl('path', { d: `M${-W / 2 - 14} ${fy0 + 4} L${W / 2 + 14} ${fy0 + 4} L${W / 2 - 16} ${roofTop} L${-W / 2 + 16} ${roofTop} Z`, fill: col, stroke: OUT, 'stroke-width': 1.9, 'stroke-linejoin': 'round' }, body);
     const title = svgEl('text', { x: 0, y: (fy0 + roofTop) / 2 + 2, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'civic-title' }, body);
-    title.textContent = `${c.icon} ${c.name}`;
+    title.textContent = c.name;
     // 招牌：列出每一項
     svgEl('rect', { x: -W / 2 + 20, y: fy0 + 8, width: W - 40, height: boardH, rx: 8, fill: '#fffdf7', stroke: dark, 'stroke-width': 1.6 }, body);
     rows.forEach((r, i) => {
       const y = fy0 + 8 + 7 + rowH * (i + 0.5);
       if (i) svgEl('path', { d: `M${-W / 2 + 30} ${y - rowH / 2} H${W / 2 - 30}`, stroke: 'rgba(91,70,54,.15)', 'stroke-width': 1 }, body);
-      const t = svgEl('text', { x: -W / 2 + 32, y, 'dominant-baseline': 'central', class: 'civic-item' }, body);
+      svgEl('circle', { cx: -W / 2 + 34, cy: y, r: 3.2, fill: shade(c.color, -0.15) }, body);
+      const t = svgEl('text', { x: -W / 2 + 44, y, 'dominant-baseline': 'central', class: 'civic-item' }, body);
       t.textContent = r;
     });
     return { plateY: null };
@@ -1428,7 +1512,7 @@
 
   function addIcon(body, it, c, cy = -3, size = 28) {
     const ic = svgEl('text', { x: 0, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'ticon', 'font-size': size.toFixed(1) }, body);
-    ic.textContent = it.icon || c.icon;
+    ic.textContent = initial(it);
   }
 
   const movers = [];
@@ -1437,6 +1521,8 @@
   const roads = [];
   const spots = { park: [], plaza: [], lake: null, wild: [] }; // 動物的活動範圍（wild = 城市外的原野）
   let bounds = { x0: 0, x1: 0, y0: 0, y1: 0 };
+  let islandPoly = []; // 大島的海岸線（算星星要不要畫在海上）
+  let skyArc = null;   // 太陽、月亮在地圖上走的路線（島的北方天空）
 
   /* ---------- 選取 / 篩選 的視覺狀態 ---------- */
   function refreshMap() {
@@ -1714,11 +1800,11 @@
 
     $('#panel-inner').innerHTML = `
       <div class="p-head" style="--c:${c.color}">
-        <span class="p-cat">${esc(c.icon)} ${esc(c.name)}・${esc(c.label)}</span>
-        <button class="p-close" aria-label="關閉">✕</button>
+        <span class="p-cat">${esc(c.name)}・${esc(c.label)}</span>
+        <button class="p-close" aria-label="關閉">${icon('close', 18)}</button>
       </div>
       <div class="p-hero" style="--c:${c.color};--cd:${shade(c.color, -0.28)}">
-        ${imageOf(it) ? `<img class="p-avatar${it.cat === 'hub' ? ' me' : ''}" src="${esc(imageOf(it))}" alt="${esc(it.title)}">` : `<div class="p-icon">${esc(it.icon || c.icon)}</div>`}
+        ${imageOf(it) ? `<img class="p-avatar${it.cat === 'hub' ? ' me' : ''}" src="${esc(imageOf(it))}" alt="${esc(it.title)}">` : `<div class="p-icon mono">${esc(initial(it))}</div>`}
       </div>
       <h2 class="p-title">${esc(it.title)}</h2>
       ${it.subtitle ? `<p class="p-sub">${esc(it.subtitle)}</p>` : ''}
@@ -1729,8 +1815,8 @@
       ${it.body?.length ? `<div class="p-body">${it.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
       ${it.tags?.length ? `<div class="p-tags">${it.tags.map((t) => `<span>#${esc(t)}</span>`).join('')}</div>` : ''}
       ${links.length ? `<div class="p-links">${links.map((l) => `<a href="${esc(l.url)}" ${isExternal(l.url) ? 'target="_blank" rel="noopener"' : ''} style="--c:${c.color}">${esc(l.label)} ↗</a>`).join('')}</div>` : ''}
-      ${rel.length ? `<div class="p-rel-title">🔗 協作關係 <small>${rel.length}</small></div>
-        <div class="p-rel">${rel.map((r) => { const rc = catById[r.cat]; const tag = canOpen(r) ? 'button' : 'div'; return `<${tag} ${canOpen(r) ? `data-go="${esc(r.id)}"` : 'class="static"'} style="--c:${rc.color}"><i>${imageOf(r) ? `<img src="${esc(imageOf(r))}" alt="">` : esc(r.icon || rc.icon)}</i><span>${esc(r.short || r.title)}</span><small>${esc(rc.label)}</small></${tag}>`; }).join('')}</div>` : ''}
+      ${rel.length ? `<div class="p-rel-title">${icon('link', 16)} 協作關係 <small>${rel.length}</small></div>
+        <div class="p-rel">${rel.map((r) => { const rc = catById[r.cat]; const tag = canOpen(r) ? 'button' : 'div'; return `<${tag} ${canOpen(r) ? `data-go="${esc(r.id)}"` : 'class="static"'} style="--c:${rc.color}"><i>${imageOf(r) ? `<img src="${esc(imageOf(r))}" alt="">` : `<b class="mono">${esc(initial(r))}</b>`}</i><span>${esc(r.short || r.title)}</span><small>${esc(rc.label)}</small></${tag}>`; }).join('')}</div>` : ''}
     `;
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
@@ -1793,10 +1879,10 @@
       const members = items.filter((i) => i.cat === c.id);
       if (!members.length) return '';
       return `<section class="list-group" data-cat="${esc(c.id)}" style="--c:${c.color}">
-        <h3><span>${esc(c.icon)}</span>${esc(c.name)}<small>${esc(c.label)}・${members.length}</small></h3>
+        <h3><span class="dot"></span>${esc(c.name)}<small>${esc(c.label)}・${members.length}</small></h3>
         <div class="list-cards">${members.map((m) => `
           <${canOpen(m) ? 'button' : 'div'} class="list-card${canOpen(m) ? '' : ' static'}" data-id="${esc(m.id)}">
-            <i>${imageOf(m) ? `<img src="${esc(imageOf(m))}" alt="">` : esc(m.icon || c.icon)}</i>
+            <i>${imageOf(m) ? `<img src="${esc(imageOf(m))}" alt="">` : `<b class="mono">${esc(initial(m))}</b>`}</i>
             <div><b>${esc(m.title)}</b><span>${esc(m.subtitle || m.summary || '')}</span></div>
           </${canOpen(m) ? 'button' : 'div'}>`).join('')}</div>
       </section>`;
@@ -1837,7 +1923,7 @@
 
     const box = $('#ic-filters');
     box.innerHTML = `<button class="chip all on" data-all>全部</button>` +
-      cats.map((c) => `<button class="chip on" data-cat="${esc(c.id)}" style="--c:${c.color}">${esc(c.icon)} ${esc(c.label)}</button>`).join('');
+      cats.map((c) => `<button class="chip on" data-cat="${esc(c.id)}" style="--c:${c.color}"><span class="dot"></span>${esc(c.label)}</button>`).join('');
     box.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -1869,10 +1955,10 @@
    * ========================================================= */
   // 每個按鈕的說明（手機版點了會跳出小字）
   const TOOL_TIP = {
-    labels: ['🏷️ 名牌', '建築下面的名字'],
-    lines: ['🔗 協作線', '建築之間的合作關係'],
-    animals: ['🐾 動物', '城市裡的小動物'],
-    log: ['📜 日誌', '畫面下方的城市日誌'],
+    labels: ['名牌', '建築下面的名字'],
+    lines: ['協作線', '建築之間的合作關係'],
+    animals: ['動物', '城市裡的小動物'],
+    log: ['日誌', '畫面下方的城市日誌'],
   };
   let tipTimer = null;
   function toolTip(btn, html) {
@@ -1895,7 +1981,7 @@
       bar.classList.toggle('open', open);
       toggle.setAttribute('aria-expanded', open);
       toggle.setAttribute('aria-label', open ? '收起工具列' : '打開工具列');
-      toggle.firstChild.textContent = open ? '✕' : '🧰';
+      $('.ico-slot', toggle).innerHTML = icon(open ? 'close' : 'tools');
     };
     // 手機：點地圖就把工具列收起來
     svg.addEventListener('pointerdown', () => { if (isMobile()) setOpen(false); });
@@ -1906,18 +1992,18 @@
       if (b.dataset.action === 'fit') {
         if (state.view !== 'map') setView('map');
         fit();
-        if (isMobile()) toolTip(b, '🦅 鳥瞰<small>看整座城市</small>');
+        if (isMobile()) toolTip(b, '鳥瞰<small>看整座城市</small>');
         return;
       }
       const k = b.dataset.toggle;
       state[k] = !state[k];
       b.setAttribute('aria-pressed', state[k]);
-      if (k === 'paused') { b.firstChild.textContent = state.paused ? '▶️' : '⏸️'; b.querySelector('span').textContent = state.paused ? '播放' : '暫停'; document.body.classList.toggle('paused', state.paused); }
+      if (k === 'paused') { $('.ico-slot', b).innerHTML = icon(state.paused ? 'play' : 'pause'); b.querySelector('span').textContent = state.paused ? '播放' : '暫停'; document.body.classList.toggle('paused', state.paused); }
       if (k === 'log') $('#log').classList.toggle('hide', !state.log);
       if (k === 'animals') svg.classList.toggle('no-animals', !state.animals);
       refreshMap();
       if (isMobile()) {
-        if (k === 'paused') toolTip(b, state.paused ? '⏸️ 已暫停<small>畫面上的動畫都停下來</small>' : '▶️ 播放中<small>動畫繼續動</small>');
+        if (k === 'paused') toolTip(b, state.paused ? '已暫停<small>畫面上的動畫都停下來</small>' : '播放中<small>動畫繼續動</small>');
         else if (TOOL_TIP[k]) toolTip(b, `${TOOL_TIP[k][0]}：${state[k] ? '開' : '關'}<small>${TOOL_TIP[k][1]}</small>`);
       }
     });
@@ -1960,7 +2046,7 @@
     hinted = true;
     const tip = document.createElement('div');
     tip.className = 'drag-hint';
-    tip.innerHTML = '<span class="hand">👆</span> 拖曳地圖探索整座城市<br><small>雙指可以縮放・點建築看介紹</small>';
+    tip.innerHTML = '拖曳地圖探索整座城市<br><small>雙指可以縮放・點建築看介紹</small>';
     document.body.appendChild(tip);
     const bye = () => { tip.classList.add('out'); setTimeout(() => tip.remove(), 400); svg.removeEventListener('pointerdown', bye); };
     svg.addEventListener('pointerdown', bye);
@@ -2047,23 +2133,24 @@
     document.body.classList.toggle('is-night', night > 0.5);
 
     // 太陽：從右邊（東）升起、劃過上空、從左邊（西）落下；月亮在晚上走同樣的路
-    const sun = $('#sun'), moon = $('#moon');
+    // 太陽、月亮在地圖上：從東邊（右）升起、劃過島的北方天空、從西邊（左）落下
+    const sun = document.getElementById('w-sun'), moon = document.getElementById('w-moon');
     const place = (el, p, show) => {
-      if (!el) return;
-      el.style.opacity = show ? 1 : 0;
+      if (!el || !skyArc) return;
+      el.setAttribute('opacity', show ? 1 : 0);
       if (p == null) return;
-      el.style.left = `${(86 - 64 * p).toFixed(2)}%`;
-      // 手機上方有索引卡，太陽月亮走低一點才不會被擋住
-      const [base, amp] = isMobile() ? [220, 60] : [150, 80];
-      el.style.top = `${(base - Math.sin(Math.PI * p) * amp).toFixed(1)}px`;
+      const x = skyArc.x1 - (skyArc.x1 - skyArc.x0) * p;
+      const y = skyArc.base - Math.sin(Math.PI * p) * skyArc.amp;
+      el.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
     };
     place(sun, sunP ?? (moonP < 0.5 ? 1 : 0), e > -0.06);
     place(moon, moonP ?? (sunP < 0.5 ? 1 : 0), e < 0.06);
-    if (moon) {
+    const shadow = document.getElementById('w-moon-shadow');
+    if (shadow) {
       // 月相：陰影從右邊進來（虧）、往左邊退開（盈）；滿月時完全移開
       const ph = moonPhase(now);
-      const off = ph < 0.5 ? -(ph * 2) * 105 : (1 - (ph - 0.5) * 2) * 105;
-      moon.style.setProperty('--moonx', `${off.toFixed(1)}%`);
+      const off = ph < 0.5 ? -(ph * 2) * 1.05 : (1 - (ph - 0.5) * 2) * 1.05;
+      shadow.setAttribute('cx', (off * 54).toFixed(1));
     }
 
     // 影子：背向太陽，太陽越低影子越長；晚上影子很淡
@@ -2077,9 +2164,9 @@
     // 時間按鈕
     const btn = $('#time-btn');
     if (btn) {
-      const icon = night > 0.5 ? '🌙' : e < 0.15 && sunP !== null ? (sunP < 0.5 ? '🌅' : '🌇') : e < 0 ? '🌆' : '☀️';
+      const ic = night > 0.5 || (sunP === null) ? 'moon' : e < 0.15 ? (sunP < 0.5 ? 'sunrise' : 'sunset') : 'sun';
       const hh = Math.floor(t) % 24, mm = Math.floor((t % 1) * 60);
-      btn.firstChild.textContent = icon;
+      $('.ico-slot', btn).innerHTML = icon(ic, 18);
       $('span', btn).textContent = mode === 'auto' ? `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` : DAY_MODES[dayMode].label;
       btn.classList.toggle('preview', mode !== 'auto');
     }
@@ -2087,33 +2174,19 @@
     // 城市日誌報時
     const phase = night > 0.5 ? 'night' : sunP === null ? 'twilight' : e < 0.15 ? (sunP < 0.5 ? 'dawn' : 'dusk') : 'day';
     if (lastPhase && phase !== lastPhase && mode === 'auto') {
-      const msg = { dawn: '🌅 太陽升起來了，城市醒了', day: '☀️ 晴朗的白天', dusk: '🌇 夕陽西下，天空染成橘色', twilight: '🌆 天色慢慢暗下來', night: '🌙 夜深了，城市的燈都亮了' }[phase];
+      const msg = { dawn: '太陽升起來了，城市醒了', day: '晴朗的白天', dusk: '夕陽西下，天空染成橘色', twilight: '天色慢慢暗下來', night: '夜深了，城市的燈都亮了' }[phase];
       if (msg && typeof pushLog === 'function') pushLog(msg, null, true);
     }
     lastPhase = phase;
   }
 
   function bindDaylight() {
-    // 星星
-    const stars = $('#stars');
-    if (stars && !stars.children.length) {
-      const rnd = seeded(77);
-      for (let i = 0; i < 46; i++) {
-        const st = document.createElement('i');
-        st.className = 'star';
-        st.style.left = `${(rnd() * 100).toFixed(1)}%`;
-        st.style.top = `${(rnd() * 70).toFixed(1)}%`;
-        st.style.animationDelay = `${(rnd() * 3).toFixed(2)}s`;
-        if (rnd() < 0.25) st.classList.add('big');
-        stars.appendChild(st);
-      }
-    }
     const btn = $('#time-btn');
     if (btn) btn.addEventListener('click', () => {
       dayMode = (dayMode + 1) % DAY_MODES.length;
       applyDaylight();
       const m = DAY_MODES[dayMode];
-      toolTip(btn, m.id === 'auto' ? '🕒 跟著現在時間<small>城市的光影會隨時間變化</small>' : `👀 預覽：${m.label}<small>再點一下切換，最後回到現在時間</small>`);
+      toolTip(btn, m.id === 'auto' ? '跟著現在時間<small>城市的光影會隨時間變化</small>' : `預覽：${m.label}<small>再點一下切換，最後回到現在時間</small>`);
     });
     applyDaylight();
     setInterval(applyDaylight, 30000);
@@ -2198,7 +2271,12 @@
   /* =========================================================
    *  啟動
    * ========================================================= */
+  function renderIcons() {
+    $$('[data-ico]').forEach((el) => { el.innerHTML = icon(el.dataset.ico, +(el.dataset.size || 20)); });
+  }
+
   function init() {
+    renderIcons();
     buildIndex();
     buildMap();
     buildAnimals();
