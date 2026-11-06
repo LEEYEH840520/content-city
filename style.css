@@ -357,7 +357,7 @@ body[data-view="list"] #index-card { display: none; }
 
   /* 索引卡：預設收合成小卡，展開時變成整排 */
   #index-card {
-    top: calc(60px + var(--safe-t)); left: 12px; right: 12px; width: auto; max-width: none;
+    top: calc(70px + var(--safe-t)); left: 12px; right: 12px; width: auto; max-width: none;
     padding: 10px 12px; transition: opacity .25s, transform .25s;
   }
   #index-card.collapsed { right: auto; max-width: calc(100vw - 24px); padding: 8px 10px; }
@@ -592,4 +592,18 @@ body.paused #sun::before, body.paused .star { animation-play-state: paused; }
   .time-btn span { font-size: 12px; }
   #sun { width: 36px; height: 36px; }
   #moon { width: 30px; height: 30px; }
+}
+
+/* 上方列：不換行；手機版「地圖／清單」只留圖示，才不會擠到兩行、蓋住索引卡 */
+.topbar > * { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 720px) {
+  .topbar { gap: 6px; }
+  .brand { padding: 7px 11px; }
+  .views button { padding: 7px 11px; font-size: 15px; }
+  .views button span { display: none; }
+  .time-btn { padding: 0 9px; gap: 4px; }
+  .help-btn { width: 34px; height: 34px; }
+}
+@media (max-width: 360px) {
+  .time-btn span { display: none; }
 }

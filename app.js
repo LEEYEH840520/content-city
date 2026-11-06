@@ -1971,7 +1971,9 @@
       el.style.opacity = show ? 1 : 0;
       if (p == null) return;
       el.style.left = `${(86 - 64 * p).toFixed(2)}%`;
-      el.style.top = `${(150 - Math.sin(Math.PI * p) * 80).toFixed(1)}px`;
+      // 手機上方有索引卡，太陽月亮走低一點才不會被擋住
+      const [base, amp] = isMobile() ? [220, 60] : [150, 80];
+      el.style.top = `${(base - Math.sin(Math.PI * p) * amp).toFixed(1)}px`;
     };
     place(sun, sunP ?? (moonP < 0.5 ? 1 : 0), e > -0.06);
     place(moon, moonP ?? (sunP < 0.5 ? 1 : 0), e < 0.06);
