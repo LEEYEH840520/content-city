@@ -733,3 +733,16 @@ body.paused .sun-rays, body.paused #lights .wstar { animation-play-state: paused
 
 /* 清單：沒有照片的字章置中（原本被 .list-card b 的樣式蓋掉，字會歪到左上角） */
 .list-card i .mono { display: grid; margin: 0; }
+
+/* ---------- 手機一直閃爍（第三輪）---------- */
+/* 原因：夜色、燈光是另外兩層，用混色模式疊在每一格都在重畫的地圖上，
+   加上晚上幾百盞燈、星星同時在閃 → 手機顯示晶片來不及合成，整個畫面就一直閃。
+   手機改成：夜色直接畫進地圖那張圖裡、燈光不用混色、燈和星星靜靜亮著不閃。 */
+#map .tint-in { display: none; pointer-events: none; }
+.no-tint #tint, .no-tint #map .tint-in { display: none !important; }
+@media (hover: none), (max-width: 720px) {
+  #tint { display: none; }
+  #map .tint-in { display: inline; fill: var(--tint, transparent); mix-blend-mode: multiply; transition: fill 2.5s ease; }
+  #lights { mix-blend-mode: normal; }
+  #lights *, #labels .sun-rays { animation: none !important; }
+}

@@ -698,6 +698,9 @@
       tintSvg.innerHTML = '';
       svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, class: 'tint-fill' }, tintSvg);
     }
+    // 手機版：夜色直接畫在地圖這張圖裡面（不用另一層去跟地圖做混色，那樣手機會一直閃）
+    $$('.tint-in', svg).forEach((n) => n.remove());
+    svgEl('rect', { x: -20000, y: -20000, width: 40000, height: 40000, class: 'tint-in' }, svg);
 
     // 開燈：把每棟建築的線條複製到燈光層，輪廓線變成暖黃色的燈、窗戶亮起來
     const neon = svgEl('g', { class: 'neon-lights' }, lightsSvg);
@@ -2190,6 +2193,7 @@
     root.setProperty('--tint', `rgba(${r | 0},${g | 0},${b | 0},${a.toFixed(3)})`);
     root.setProperty('--night', night.toFixed(3));
     document.body.classList.toggle('is-night', night > 0.5);
+    document.body.classList.toggle('no-tint', a < 0.005); // 白天沒有夜色，就整層不畫
 
     // 太陽：從右邊（東）升起、劃過上空、從左邊（西）落下；月亮在晚上走同樣的路
     // 太陽、月亮在地圖上：從東邊（右）升起、劃過島的北方天空、從西邊（左）落下
