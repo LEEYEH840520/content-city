@@ -18,6 +18,16 @@ window.ISLAND_DATA = {
     tagline: '一棟作品，一座相連的城市。',
     hint: '點一棟建築，開始探索',
     avatar: 'assets/avatar.jpg',
+    /* 左上索引卡的三個亮點數字（給客戶看的重點，最多三個） */
+    stats: [
+      { value: '14 年', label: '剪輯實戰' },
+      { value: '1,000+', label: '部影片' },
+      { value: '200萬+', label: '最高自然流量' },
+    ],
+    /* 聯絡入口：右上角按鈕 + 每個面板底部的邀請（contactId 是要打開的那一格） */
+    contactId: 'contact',
+    contactLabel: '聯絡我',
+    cta: { text: '想做類似的內容？', button: '聊聊合作' },
   },
 
   /* ---------- 開場導覽（第一次進站會出現） ---------- */
@@ -74,6 +84,8 @@ window.ISLAND_DATA = {
    *   fields   [[標題, 內容]] 條列資訊
    *   body     [段落, 段落...] 長文
    *   tags     [標籤...]
+   *   videos   [{ label, url }] 代表作影片，會直接嵌在面板裡（點了才載入）
+   *            支援 YouTube、Instagram Reels、Facebook Reels 的網址
    *   links    [{ label, url }] 外部連結（url 空白就不顯示）
    *   rel      [相關格子的 id...] 協作線
    */
@@ -194,6 +206,7 @@ window.ISLAND_DATA = {
         ['角色定位', '創業老闆、搞笑活潑的運動員、十年電信資深專家。'],
         ['關鍵操作', '以搞笑短劇與創意情境包裝枯燥的電信知識，利用二手手機回收價策略成功引導客戶回店。'],
       ],
+      videos: [{ label: '代表作', url: 'https://www.instagram.com/reel/DPLIO-DEyoV/' }],
       links: [{ label: 'IG', url: 'https://www.instagram.com/mingli.tw/' }, { label: 'FB', url: 'https://www.facebook.com/profile.php?id=100063985424071' }],
       rel: ['skill-script', 'svc-short'],
     },
@@ -227,6 +240,7 @@ window.ISLAND_DATA = {
         ['角色定位', '在美華人、醫美與房地產專業、敢講敢玩的強勢女力。'],
         ['關鍵操作', '題材橫跨餐廳探店、人生觀分享與街頭互動，結合 AI 工具優化腳本與熱門題材分析。'],
       ],
+      videos: [{ label: '代表作', url: 'https://www.instagram.com/reel/DTe0OX0jxa0/' }],
       links: [{ label: 'IG 主帳', url: 'https://www.instagram.com/catherineeeeh/' }, { label: 'Threads', url: 'https://www.threads.com/@catherineeeeh' }],
       rel: ['skill-ai', 'skill-account'],
     },
@@ -243,6 +257,7 @@ window.ISLAND_DATA = {
         ['角色定位', '超級業務、專業講師、接地氣的大姊頭。'],
         ['關鍵操作', '用影片說故事，傳遞真實的業務職人精神，將個人特質品牌化。'],
       ],
+      videos: [{ label: '代表作', url: 'https://www.facebook.com/reel/1298572688575510' }],
       links: [{ label: 'FB', url: 'https://www.facebook.com/nanalovestoyota' }],
       rel: ['skill-script'],
     },
@@ -258,6 +273,7 @@ window.ISLAND_DATA = {
         ['關鍵操作', '共同經營 2.5 年，以「學習 + 綜藝」呈現釣魚主題，大幅提升內容娛樂性。'],
         ['品牌合作', '與知名品牌「漁拓釣具」達成優質長期合作。'],
       ],
+      videos: [{ label: '代表作', url: 'https://www.youtube.com/watch?v=5AMUTDjxPiM' }],
       links: [{ label: 'YouTube', url: 'https://www.youtube.com/@bar6673' }],
       rel: ['me', 'svc-youtube', 'skill-shoot'],
     },
@@ -272,6 +288,7 @@ window.ISLAND_DATA = {
         ['角色定位', '光頭老闆、銀行產業專家。'],
         ['關鍵操作', '將枯燥的專業知識以輕鬆語氣呈現，拉近與觀眾距離；影像素材應用於廣告投放。'],
       ],
+      videos: [{ label: '代表作', url: 'https://www.youtube.com/watch?v=B_C1__dfq3A' }],
       links: [{ label: 'YouTube', url: 'https://www.youtube.com/@houseloantw/videos' }],
       rel: ['svc-youtube', 'skill-ads'],
     },
@@ -295,6 +312,7 @@ window.ISLAND_DATA = {
         { value: '4.02 萬', label: 'YouTube 訂閱' },
         { value: '1.78 萬', label: 'IG 粉絲' },
       ],
+      videos: [{ label: '代表作', url: 'https://www.youtube.com/watch?v=JkQ76hIHX8s' }],
       links: [{ label: 'YouTube', url: 'https://www.youtube.com/@SPICES_JOURNEY_REX' }, { label: 'IG', url: 'https://www.instagram.com/spices_jny/' }],
       rel: ['skill-shoot'],
     },
@@ -309,6 +327,7 @@ window.ISLAND_DATA = {
       id: 'brand-xuanyan', cat: 'brand', icon: '🌸', image: 'assets/clients/xuanyan.jpg', asOf: '2026/11/06', title: '瑄燕（書瑄 Jessica）', short: '瑄燕',
       summary: '品牌經營者的個人品牌形象視覺打造。',
       stats: [{ value: '1.23 萬', label: 'IG 粉絲' }],
+      videos: [{ label: '代表作', url: 'https://www.instagram.com/reel/DQEZO2FEUcL/' }],
       links: [{ label: '官網', url: 'https://xuanyan.com.tw/' }, { label: 'IG', url: 'https://www.instagram.com/jessica913xuan/' }],
       rel: ['svc-brandfilm'],
     },

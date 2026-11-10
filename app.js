@@ -41,6 +41,8 @@
     log: '<path d="M6.5 3.8h9.3l2.7 2.7v13.7H6.5z"/><path d="M9.3 9.4h6.4M9.3 12.6h6.4M9.3 15.8h4"/>',
     tools: '<path d="M4 7.5h9M17.5 7.5H20M4 16.5h3M11.5 16.5H20"/><circle cx="15.2" cy="7.5" r="2.2"/><circle cx="9.2" cy="16.5" r="2.2"/>',
     close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    mail: '<path d="M3.5 6.5h17v11h-17z"/><path d="M3.8 7l8.2 6.4L20.2 7"/>',
+    video: '<path d="M3.5 6h17v12h-17z"/><path d="M10.2 9.4l4.8 2.6-4.8 2.6z"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
     moon: '<path d="M19.6 14.6A7.9 7.9 0 1 1 9.4 4.4a6.3 6.3 0 0 0 10.2 10.2z"/>',
     sunrise: '<path d="M7.5 16a4.5 4.5 0 0 1 9 0M3 19.5h18M12 4v5M9.6 6.6L12 4l2.4 2.6M4.6 12.4l1.5 1M19.4 12.4l-1.5 1"/>',
@@ -50,6 +52,24 @@
   // 名稱的第一個字（沒有照片時用來當圓形字章）
   const initial = (it) => [...String(it.short || it.title || '')].find((ch) => ch.trim()) || '・';
   const isMobile = () => window.innerWidth <= 720;
+
+  /* ---------- 代表作影片：從網址判斷平台，組出嵌入用的網址 ---------- */
+  const videoInfo = (url) => {
+    const u = String(url || '');
+    let m;
+    if ((m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/))) {
+      return { kind: 'yt', name: 'YouTube', vertical: /shorts\//.test(u), thumb: `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`,
+        embed: `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&rel=0&playsinline=1` };
+    }
+    if ((m = u.match(/instagram\.com\/(?:[\w.]+\/)?(reel|reels|p|tv)\/([\w-]+)/))) {
+      return { kind: 'ig', name: 'Instagram', vertical: true, embed: `https://www.instagram.com/${m[1] === 'reels' ? 'reel' : m[1]}/${m[2]}/embed/` };
+    }
+    if (/^https:\/\/(www\.|m\.)?(facebook\.com|fb\.watch)\//.test(u)) {
+      return { kind: 'fb', name: 'Facebook', vertical: /\/reel\//.test(u), embed: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}&show_text=false&autoplay=true` };
+    }
+    return null;
+  };
+  let music = null; // 背景音樂的控制（影片播放時先安靜）
 
   /* ---------- 資料整理 ---------- */
   const cats = D.categories;
@@ -1794,6 +1814,10 @@
     if (!canOpen(it)) return;
     const c = catById[it.cat];
     state.selected = id;
+    if (music) music.back(); // 上一格的影片會被換掉，音樂可以回來
+    const videos = (it.videos || []).map((v) => ({ ...v, info: videoInfo(v.url) })).filter((v) => v.info);
+    const contactId = D.site.contactId, cta = D.site.cta;
+    const showCta = cta && contactId && id !== contactId && canOpen(itemById[contactId]);
     const rel = neighbors(id).map((n) => itemById[n]);
     const links = (it.links || []).filter((l) => l.url);
     const isExternal = (u) => /^https?:/i.test(u);
@@ -1811,12 +1835,24 @@
       ${it.summary ? `<p class="p-sum">${esc(it.summary)}</p>` : ''}
       ${it.stats?.length ? `<div class="p-stats">${it.stats.map((s) => `<div class="p-stat" style="--c:${c.color}"><b>${esc(s.value)}</b><span>${esc(s.label)}</span></div>`).join('')}</div>` : ''}
       ${it.stats?.length && it.asOf ? `<p class="p-asof">數據更新於 ${esc(it.asOf)}</p>` : ''}
+      ${videos.length ? `<div class="p-videos" style="--c:${c.color};--cd:${shade(c.color, -0.28)}">
+        <div class="p-videos-title">${icon('video', 16)} 代表作</div>
+        ${videos.map((v) => `<figure class="p-video ${v.info.kind}${v.info.vertical ? ' vertical' : ''}">
+          <button class="pv-play" data-embed="${esc(v.info.embed)}" aria-label="播放${esc(v.label || '代表作')}（${v.info.name}）">
+            ${v.info.thumb ? `<img src="${esc(v.info.thumb)}" alt="" loading="lazy">` : imageOf(it) ? `<img class="pv-blur" src="${esc(imageOf(it))}" alt="">` : ''}
+            <span class="pv-btn"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M8.5 5.5l10.5 6.5-10.5 6.5z" fill="currentColor"/></svg></span>
+            <span class="pv-src">${v.info.name}${v.info.vertical ? ' Reels' : ''}・點一下播放</span>
+          </button>
+          <figcaption><span>${esc(v.label || '代表作')}</span><a href="${esc(v.url)}" target="_blank" rel="noopener">到 ${v.info.name} 觀看 ↗</a></figcaption>
+        </figure>`).join('')}
+      </div>` : ''}
       ${it.fields?.length ? `<dl class="p-fields">${it.fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
       ${it.body?.length ? `<div class="p-body">${it.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>` : ''}
       ${it.tags?.length ? `<div class="p-tags">${it.tags.map((t) => `<span>#${esc(t)}</span>`).join('')}</div>` : ''}
       ${links.length ? `<div class="p-links">${links.map((l) => `<a href="${esc(l.url)}" ${isExternal(l.url) ? 'target="_blank" rel="noopener"' : ''} style="--c:${c.color}">${esc(l.label)} ↗</a>`).join('')}</div>` : ''}
       ${rel.length ? `<div class="p-rel-title">${icon('link', 16)} 協作關係 <small>${rel.length}</small></div>
         <div class="p-rel">${rel.map((r) => { const rc = catById[r.cat]; const tag = canOpen(r) ? 'button' : 'div'; return `<${tag} ${canOpen(r) ? `data-go="${esc(r.id)}"` : 'class="static"'} style="--c:${rc.color}"><i>${imageOf(r) ? `<img src="${esc(imageOf(r))}" alt="">` : `<b class="mono">${esc(initial(r))}</b>`}</i><span>${esc(r.short || r.title)}</span><small>${esc(rc.label)}</small></${tag}>`; }).join('')}</div>` : ''}
+      ${showCta ? `<div class="p-cta" style="--c:${catById[itemById[contactId].cat].color}"><span>${esc(cta.text)}</span><button data-go="${esc(contactId)}">${icon('mail', 16)} ${esc(cta.button)}</button></div>` : ''}
     `;
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
@@ -1824,6 +1860,19 @@
     $('#panel-inner').scrollTop = 0;
     $('.p-close', panel).addEventListener('click', closePanel);
     $$('[data-go]', panel).forEach((b) => b.addEventListener('click', () => openItem(b.dataset.go)));
+    // 影片：點了才把播放器載進來（平常只是一張封面，不拖慢網站）
+    $$('.pv-play', panel).forEach((b) => b.addEventListener('click', () => {
+      const f = document.createElement('iframe');
+      f.src = b.dataset.embed;
+      f.title = b.getAttribute('aria-label');
+      f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; web-share';
+      f.allowFullscreen = true;
+      f.referrerPolicy = 'strict-origin-when-cross-origin';
+      f.setAttribute('scrolling', 'no');
+      b.parentNode.classList.add('playing');
+      b.replaceWith(f);
+      if (music) music.hush();
+    }));
     refreshMap();
     refreshList();
     if (focus && state.view === 'map') focusOn(id);
@@ -1864,6 +1913,8 @@
 
   function closePanel() {
     state.selected = null;
+    if ($('#panel-inner iframe')) $('#panel-inner').innerHTML = ''; // 關掉面板就停止影片
+    if (music) music.back();
     panel.classList.remove('open', 'full');
     panel.setAttribute('aria-hidden', 'true');
     refreshMap();
@@ -1914,12 +1965,20 @@
     const av = $('#ic-avatar');
     if (s.avatar) { av.src = s.avatar; av.onerror = () => av.remove(); } else av.remove();
 
+    // 亮點數字：data.js 的 site.stats；沒填就退回城市的統計
     const nonHub = cats.filter((c) => c.id !== 'hub');
-    $('#ic-stats').innerHTML = [
-      [nonHub.length, '個地區'],
-      [items.length, '棟建築'],
-      [relPairs.length, '條協作線'],
-    ].map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+    const stats = s.stats?.length ? s.stats.slice(0, 3).map((x) => [x.value, x.label])
+      : [[nonHub.length, '個地區'], [items.length, '棟建築'], [relPairs.length, '條協作線']];
+    $('#ic-stats').innerHTML = stats.map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('');
+
+    // 右上角的「聯絡我」
+    const cb = $('#contact-btn');
+    if (cb) {
+      if (s.contactId && canOpen(itemById[s.contactId])) {
+        if (s.contactLabel) cb.querySelector('span').textContent = s.contactLabel;
+        cb.addEventListener('click', () => openItem(s.contactId));
+      } else cb.remove();
+    }
 
     const box = $('#ic-filters');
     box.innerHTML = `<button class="chip all on" data-all>全部</button>` +
@@ -2235,6 +2294,12 @@
       if (want && audio.paused) play();
     };
     document.addEventListener('pointerdown', first, true);
+    // 看影片時音樂先安靜，影片關掉再回來
+    let hushed = false;
+    music = {
+      hush() { if (!audio.paused) { hushed = true; stop(); } },
+      back() { if (hushed && want) play(); hushed = false; },
+    };
     // 切到別的分頁或 App 就暫停，回來再繼續
     let resume = false;
     document.addEventListener('visibilitychange', () => {

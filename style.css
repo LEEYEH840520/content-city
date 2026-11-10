@@ -669,3 +669,67 @@ body.paused .sun-rays, body.paused #lights .wstar { animation-play-state: paused
 .p-rel i .mono { font-size: 13px; border-radius: 50%; }
 .p-icon.mono { width: 96px; height: 96px; border-radius: 50%; font-size: 40px; border: 4px solid #fff; box-shadow: 0 6px 14px rgba(0,0,0,.15); background: var(--cd, var(--c)); filter: none; }
 @media (max-width: 720px) { .p-icon.mono { width: 72px; height: 72px; font-size: 30px; } }
+
+/* ---------- 索引卡：亮點數字 ---------- */
+.ic-stats div { padding: 8px 4px; }
+.ic-stats b { font-size: 16px; white-space: nowrap; line-height: 1.5; }
+@media (max-width: 720px) { .ic-stats b { font-size: 17px; } }
+
+/* ---------- 聯絡我 ---------- */
+.contact-btn {
+  -webkit-appearance: none; appearance: none; height: 38px; border: 0; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px; padding: 0 16px;
+  background: var(--ink); color: #fff; font-size: 14px; font-weight: 700; line-height: 1;
+  box-shadow: var(--shadow); transition: transform .15s, background .15s, opacity .25s;
+}
+.contact-btn:hover { background: #57525b; transform: translateY(-1px); }
+@media (max-width: 720px) {
+  /* 手機上方列已經滿了：改放右下角，跟工具列同一排 */
+  .contact-btn { position: fixed; right: 12px; bottom: calc(12px + var(--safe-b)); height: 46px; padding: 0 16px; font-size: 14.5px; }
+  body:has(#panel.open) .contact-btn, body:has(#toolbar.open) .contact-btn { opacity: 0; pointer-events: none; }
+}
+@media (max-width: 340px) { .contact-btn span { display: none; } .contact-btn { padding: 0 14px; } }
+
+/* ---------- 面板：代表作影片 ---------- */
+.p-videos { margin: 0 0 16px; }
+.p-videos-title { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 8px; }
+.p-video { margin: 0 0 12px; }
+.pv-play {
+  position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 0; overflow: hidden;
+  border-radius: 14px; background: linear-gradient(160deg, var(--c), var(--cd)); color: #fff;
+}
+.pv-play img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s; }
+.pv-play img.pv-blur { filter: blur(14px) saturate(1.1); transform: scale(1.25); }
+.pv-play::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(30, 28, 32, .62), rgba(30, 28, 32, .08) 55%); }
+.pv-btn {
+  position: absolute; left: 50%; top: 50%; z-index: 1; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .94); color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28); transition: transform .2s cubic-bezier(.3, 1.6, .5, 1);
+}
+.pv-btn svg { margin-left: 3px; }
+.pv-src { position: absolute; left: 12px; bottom: 10px; z-index: 1; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; }
+.pv-play:hover .pv-btn, .pv-play:focus-visible .pv-btn { transform: scale(1.1); }
+.pv-play:hover img:not(.pv-blur) { transform: scale(1.04); }
+.p-video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 14px; background: #1e1c20; }
+.p-video.vertical.playing { max-width: 330px; margin-left: auto; margin-right: auto; }
+.p-video.fb.vertical iframe { aspect-ratio: 9 / 16; }
+.p-video.ig iframe { aspect-ratio: auto; height: 625px; background: #fff; border: 1px solid var(--line); }
+.p-video figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.p-video figcaption a { color: var(--ink); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.p-video figcaption a:hover { text-decoration: underline; }
+
+/* ---------- 面板底部：邀請聯絡 ---------- */
+.p-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 22px; padding: 14px 16px; border-radius: 16px;
+  background: color-mix(in srgb, var(--c) 18%, #fff); border: 1px solid color-mix(in srgb, var(--c) 45%, #fff);
+}
+.p-cta span { font-weight: 700; }
+.p-cta button {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 9px 16px;
+  background: var(--ink); color: #fff; font-weight: 700; font-size: 14px;
+}
+.p-cta button:hover { background: #57525b; }
+
+/* 清單：沒有照片的字章置中（原本被 .list-card b 的樣式蓋掉，字會歪到左上角） */
+.list-card i .mono { display: grid; margin: 0; }
